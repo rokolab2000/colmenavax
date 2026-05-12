@@ -625,7 +625,20 @@ const PROJECTS=[
   {id:5,cat:"SALUD",title:"CliniBus Perú",loc:"Lima, PE",raised:7800,goal:20000,backers:62,days:31,live:false,contract:"0xE8f4...2e3C",tokenSymbol:"CLN",desc:"Clínicas móviles con IA diagnóstica para zonas sin hospitales."},
   {id:6,cat:"AGUA",title:"AguaPura Chile",loc:"Atacama, CL",raised:12600,goal:18000,backers:99,days:19,live:false,contract:"0xF1a5...9b0D",tokenSymbol:"APR",desc:"Captación de agua para comunidades del desierto atacameño."},
 ];
-const MILESTONES=[
+interface Milestone {
+  id: number;
+  title: string;
+  pct: number;
+  amount: number;
+  asset: string;
+  status: MilestoneStatusKey;
+  hash: string | null;
+  date: string;
+  votes: number;
+  required: number;
+}
+
+const MILESTONES: Milestone[] = [
   {id:1,title:"Adquisición de Equipos",pct:30,amount:7500,asset:"USDC",status:"released",hash:"0x7f3a...d92b",date:"Feb 2025",votes:143,required:100},
   {id:2,title:"Instalación Lote 1 (50 hogares)",pct:30,amount:7500,asset:"USDC",status:"released",hash:"0x2c1e...4a88",date:"Mar 2025",votes:128,required:100},
   {id:3,title:"Instalación Lote 2 (100 hogares)",pct:25,amount:6250,asset:"USDC",status:"active",hash:null,date:"Abr 2025",votes:47,required:72},
@@ -655,7 +668,16 @@ const ADMIN_PROJECTS=[
   {id:"EDU",name:"Aula Digital Mx",raised:9200,locked:9200,released:0,fee:0,backers:87,risk:"MED",contract:"0xD5c3...7d2B"},
   {id:"CLN",name:"CliniBus Perú",raised:7800,locked:7800,released:0,fee:0,backers:62,risk:"HIGH",contract:"0xE8f4...2e3C"},
 ];
-const MSC={
+interface MilestoneStatus {
+  bg: string;
+  color: string;
+  border: string;
+  label: string;
+}
+
+type MilestoneStatusKey = 'released' | 'active' | 'pending';
+
+const MSC: Record<MilestoneStatusKey, MilestoneStatus> = {
   released:{bg:"var(--bg-success)",color:"var(--text-success)",border:C.success,label:"✓ LIBERADO"},
   active:{bg:"var(--bg-warn)",color:"var(--text-warn)",border:C.yellow,label:"⏳ ACTIVO"},
   pending:{bg:"var(--bg-gray)",color:"var(--text-main)",border:"var(--border-gray)",label:"🔒 PENDIENTE"}
@@ -798,7 +820,7 @@ function BeeCursor() {
 
 // ═══════════════════════════════════════════════════════════════════
 // NAVIGATION BAR
-// ═══════════════════════════════════════════════════════════════════
+// ═════════════════════════���═════════════════════════════════════════
 type PageType = 'landing' | 'proyecto' | 'onboarding' | 'dashCreator' | 'dashInvestor' | 'explorador' | 'crearCampana' | 'admin';
 type RoleType = 'creador' | 'inversor' | null;
 
@@ -1164,7 +1186,7 @@ function Proyecto({setPage,wallet}: {setPage: (p: PageType) => void; wallet: str
                <div className="pulse-badge" style={{padding:"9px 12px", background:"rgba(245,200,66,0.15)", border:`1.5px dashed ${C.yellow}`, borderRadius:6, marginBottom:14, display:"flex", alignItems:"center", gap:10}}>
                  <span style={{fontSize:20}}>🎁</span>
                  <div>
-                   <div style={{fontWeight:800, textTransform:"uppercase", fontSize:11, color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{PROJECT_REWARDS.find(r=>r.id===activeRewardId).title}</div>
+                   <div style={{fontWeight:800, textTransform:"uppercase", fontSize:11, color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{PROJECT_REWARDS.find(r=>r.id===activeRewardId)?.title}</div>
                    <div style={{opacity:0.7, fontSize:10, color:"var(--text-main)", marginTop:1}} className="text-gray-900 dark:text-white">{t("reward_unlocked")}</div>
                  </div>
                </div>
@@ -1187,7 +1209,7 @@ function Proyecto({setPage,wallet}: {setPage: (p: PageType) => void; wallet: str
 function Onboarding({setPage,setRole}: {setPage: (p: PageType) => void; setRole: (r: RoleType) => void}){
   const { ready, authenticated, user, login } = usePrivy();
   const [step,setStep]=useState(0);
-  const [selRole,setSelRole]=useState(null);
+  const [selRole,setSelRole]=useState<string | null>(null);
   const [name,setName]=useState("");
   const [email,setEmail]=useState("");
 
@@ -1203,7 +1225,7 @@ function Onboarding({setPage,setRole}: {setPage: (p: PageType) => void; setRole:
   const STEPS=["Perfil","Acceso","Datos","Listo"];
   const ROLES=[{id:"backer",i:"💰",l:"Inversor / Donante",d:"Apoyo proyectos y recibo dividendos en USDC/AVAX."},{id:"creator",i:"🚀",l:"Creador de Proyecto",d:"Tengo una startup u ONG y quiero levantar capital con escrow on-chain."}];
 
-  const doFinish=()=>{setRole(selRole);setPage(selRole==="creator"?"dashboard-creator":"dashboard-investor");};
+  const doFinish=()=>{const role = selRole==="creator"?"creador":"inversor" as RoleType;setRole(role);setPage(role==="creador"?"dashCreator":"dashInvestor");};
 
   return <div className="rsp-split" style={{display:"flex",minHeight:"100vh",paddingTop:64}}>
     <div className="rsp-split-left" style={{width:"38%",background:"var(--bg-hero)",backgroundImage:HEX,padding:"40px 32px",display:"flex",flexDirection:"column",justifyContent:"space-between",borderRight:`2px solid var(--text-main)`,color:"var(--text-main)", transition:"background 0.3s ease"}}>
@@ -1284,7 +1306,7 @@ function Onboarding({setPage,setRole}: {setPage: (p: PageType) => void; setRole:
 // ═══════════════════════════════════════════════════════════════════
 function DashboardCreator({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("overview");
-  const [voted,setVoted]=useState({});
+  const [voted,setVoted]=useState<Record<string | number, boolean | string>>({});
   const sideItems=[{k:"overview",i:"📊",l:"Resumen"},{k:"milestones",i:"🎯",l:"Hitos & Escrow"},{k:"evidence",i:"📎",l:"Subir Evidencia"},{k:"txlog",i:"⛓️",l:"On-Chain Log"},{k:"settings",i:"⚙️",l:"Config"}];
   const metrics=[{i:"💰",l:"Recaudado",v:"$18,400",s:"USDC",c:C.yellow},{i:"🔒",l:"En Escrow",v:"$3,400",s:"ColmenaCampaign.sol",c:"var(--bg-blue)"},{i:"✅",l:"Liberado",v:"$15,000",s:"2 hitos OK",c:"var(--bg-success)"},{i:"👥",l:"Inversores",v:"143",s:"holders SLR",c:"var(--bg-purple)"}];
   const TXLOG=[{d:"15 Mar 14:32",e:"💸 Hito 2 liberado",a:"+$7,500 USDC",h:"0x7f3a...d92b",b:"#4,291,112"},{d:"15 Mar 14:31",e:"🗳️ Quorum (128/143)",a:"—",h:"0x2c1e...4a88",b:"#4,291,111"},{d:"28 Feb 09:14",e:"💸 Hito 1 liberado",a:"+$7,500 USDC",h:"0xb4d9...3f01",b:"#4,288,022"},{d:"01 Feb 11:00",e:"🔒 Campaña desplegada",a:"—",h:"0x1a2b...cc44",b:"#4,270,001"}];
@@ -1341,14 +1363,14 @@ function DashboardCreator({setPage}: {setPage: (p: PageType) => void}){
 // ═══════════════════════════════════════════════════════════════════
 function DashboardInvestor({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("portfolio");
-  const [claimed,setClaimed]=useState({});
-  const [loadingClaim,setLoadingClaim]=useState(null);
-  const [voted,setVoted]=useState({});
+  const [claimed,setClaimed]=useState<Record<string, boolean>>({});
+  const [loadingClaim,setLoadingClaim]=useState<string | null>(null);
+  const [voted,setVoted]=useState<Record<string | number, boolean | string>>({});
   const sideItems=[{k:"portfolio",i:"💼",l:"Portfolio"},{k:"dividends",i:"💸",l:"Dividendos"},{k:"tokens",i:"🪙",l:"Mis Tokens"},{k:"votes",i:"🗳️",l:"Votar Hitos"},{k:"activity",i:"⛓️",l:"Actividad"}];
   const totalInv=PORTFOLIO.reduce((a,p)=>a+p.invested,0);
   const totalVal=PORTFOLIO.reduce((a,p)=>a+p.currentVal,0);
   const totalPend=PORTFOLIO.reduce((a,p)=>a+p.pending,0);
-  const doClaim=(sym)=>{setLoadingClaim(sym);setTimeout(()=>{setLoadingClaim(null);setClaimed(c=>({...c,[sym]:true}));},1800);};
+  const doClaim=(sym: string)=>{setLoadingClaim(sym);setTimeout(()=>{setLoadingClaim(null);setClaimed(c=>({...c,[sym]:true}));},1800);};
   const ACTIVITY=[{d:"15 Mar",e:"💸 Dividendos Claim",a:"+$42 USDC",h:"0x7f3a...d92b",b:"Fuji #4,291,112"},{d:"15 Mar",e:"🪙 Tokens SLR recibidos",a:"+120 SLR",h:"0x2c1e...4a88",b:"Fuji #4,291,100"},{d:"01 Feb",e:"💰 Inversión en escrow",a:"-$500 USDC",h:"0x1a2b...cc44",b:"Fuji #4,270,001"}];
   return <div style={{background:"var(--bg-gray)",minHeight:"100vh",paddingTop:64}}>
     <div className="rsp-dash-wrap" style={{display:"flex",minHeight:"calc(100vh - 64px)"}}>
@@ -1424,7 +1446,7 @@ function DashboardInvestor({setPage}: {setPage: (p: PageType) => void}){
 function Explorador({setPage}: {setPage: (p: PageType) => void}){
   const [search,setSearch]=useState("");
   const [filter,setFilter]=useState("TODOS");
-  const [open,setOpen]=useState(null);
+  const [open,setOpen]=useState<string | null>(null);
   const filtered=ADMIN_PROJECTS.filter(p=>(filter==="TODOS"||(filter==="ACTIVOS"&&p.locked>0)||(filter==="COMPLETADOS"&&p.locked===0))&&p.name.toLowerCase().includes(search.toLowerCase()));
   const riskC={LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
   const PROTO_STATS=[{i:"💰",l:"En Escrow",v:"$284K USDC"},{i:"✅",l:"Liberado",v:"$84K USDC"},{i:"⛓️",l:"TXs Fuji",v:"3,891"},{i:"🏦",l:"Fee Colmena",v:"$1,260"},{i:"🏗️",l:"Proyectos",v:"47"},{i:"👥",l:"Inversores",v:"1,240"}];
@@ -1455,14 +1477,14 @@ function Explorador({setPage}: {setPage: (p: PageType) => void}){
               <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
                 {[{l:"Recaudado",v:`$${(p.raised/1000).toFixed(0)}K`},{l:"Liberado",v:`$${(p.released/1000).toFixed(0)}K`,c:C.success},{l:"Escrow",v:`$${(p.locked/1000).toFixed(0)}K`,c:C.orange}].map((s,i)=><div key={i} style={{textAlign:"center"}}><div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:17,fontWeight:700,color:s.c||"var(--text-main)"}} className={s.c?"":"text-gray-900 dark:text-white"}>{s.v}</div><div style={{fontSize:9,opacity:.45,textTransform:"uppercase",color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{s.l}</div></div>)}
               </div>
-              <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",background:`${riskC[p.risk]}22`,color:riskC[p.risk],borderRadius:999,border:`1px solid ${riskC[p.risk]}55`}}>RISK {p.risk}</span>
+              <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",background:`${riskC[p.risk as keyof typeof riskC]}22`,color:riskC[p.risk as keyof typeof riskC],borderRadius:999,border:`1px solid ${riskC[p.risk as keyof typeof riskC]}55`}}>RISK {p.risk}</span>
               <span style={{fontSize:18,opacity:.3,transition:"transform .2s",transform:open===p.id?"rotate(90deg)":"none",color:"var(--text-main)"}}>›</span>
             </div>
             {open===p.id&&<div style={{padding:"16px 18px",borderTop:`2px solid var(--border-gray)`,background:"var(--bg-gray)",animation:"slideUp .3s ease forwards"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
                 <div><div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",opacity:.45,marginBottom:8,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">HITOS ColmenaCampaign.sol</div>
                   <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                    {MILESTONES.filter((_,i)=>i<(p.id===1?4:2)).map(m=>{const s=MSC[m.status];return <div key={m.id} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 9px",border:`1.5px solid ${s.border}`,borderRadius:5,background:s.bg}}><div style={{width:20,height:20,borderRadius:"50%",background:s.bg,border:`1.5px solid ${s.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0,color:s.color}}>{m.id}</div><span style={{fontSize:11,fontWeight:600,flex:1,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{m.title}</span>{m.hash&&<><Hash h={m.hash}/><SnowtraceLink/></>}<span style={{fontSize:9,fontWeight:700,color:s.color}}>{s.label}</span></div>;})}
+                    {MILESTONES.filter((_,i)=>i<(String(p.id)==="SLR"?4:2)).map(m=>{const s=MSC[m.status];return <div key={m.id} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 9px",border:`1.5px solid ${s.border}`,borderRadius:5,background:s.bg}}><div style={{width:20,height:20,borderRadius:"50%",background:s.bg,border:`1.5px solid ${s.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0,color:s.color}}>{m.id}</div><span style={{fontSize:11,fontWeight:600,flex:1,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{m.title}</span>{m.hash&&<><Hash h={m.hash}/><SnowtraceLink/></>}<span style={{fontSize:9,fontWeight:700,color:s.color}}>{s.label}</span></div>;})}
                   </div>
                 </div>
                 <div><div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",opacity:.45,marginBottom:8,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">FLUJO CAPITAL</div>
@@ -1504,7 +1526,7 @@ function CrearCampana({setPage}: {setPage: (p: PageType) => void}){
   const [deploying,setDeploying]=useState(false);const [deployed,setDeployed]=useState(false);
   const STEPS=["Info","Hitos","Token","Review","Deploy"];
   const pctTotal=(data.milestones||[]).reduce((a,m)=>a+Number(m.pct||0),0);
-  const updM=(id,f,v)=>setData(d=>({...d,milestones:d.milestones.map(m=>m.id===id?{...m,[f]:v}:m)}));
+  const updM=(id: number | string, f: string, v: unknown)=>setData(d=>({...d,milestones:d.milestones.map(m=>m.id===id?{...m,[f]:v}:m)}));
   const addM=()=>setData(d=>({...d,milestones:[...d.milestones,{id:d.milestones.reduce((a,m)=>Math.max(a,m.id),0)+1,title:"",pct:0,deadline:""}]}));
   const canNext=()=>{if(step===0)return data.name&&data.goal;if(step===1)return pctTotal===100&&data.milestones.every(m=>m.title);if(step===2)return data.sym&&data.rev;return true;};
   const doDeploy=()=>{setDeploying(true);setTimeout(()=>{setDeploying(false);setDeployed(true);},2200);};
@@ -1590,7 +1612,7 @@ function CrearCampana({setPage}: {setPage: (p: PageType) => void}){
               {[["Contrato","0xNEW...F4b2"],["Función","ColmenaCampaign.sol"],["Red","Avalanche Fuji Testnet"],["Chain ID","43113"],["TX Deploy","0x8a1c...33ef"],["Token",`${data.sym||"XYZ"} ERC-20 emitido`],["Estado","⚡ CAMPAÑA ACTIVA"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"6px 0",borderBottom:`1px solid var(--border-gray)`,fontSize:12}}><span style={{opacity:.55}}>{l}</span><span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:C.avax,fontSize:11,textAlign:"right"}}>{v}</span></div>)}
             </div>
             <div style={{display:"flex",gap:9,justifyContent:"center",flexWrap:"wrap"}}>
-              <button className="btn-avax" style={{padding:"11px 22px",width:"100%"}} onClick={()=>setPage("dashboard-creator")}>Ver mi Dashboard →</button>
+              <button className="btn-avax" style={{padding:"11px 22px",width:"100%"}} onClick={()=>setPage("dashCreator")}>Ver mi Dashboard →</button>
               <SnowtraceLink/>
             </div>
           </div>:<div>
@@ -1620,7 +1642,7 @@ function CrearCampana({setPage}: {setPage: (p: PageType) => void}){
 // ═══════════════════════════════════════════════════════════════════
 function Admin({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("overview");
-  const [selContract,setSelContract]=useState(null);
+  const [selContract,setSelContract]=useState<string | null>(null);
   const sideItems=[{k:"overview",i:"📊",l:"Resumen Global"},{k:"contracts",i:"🔒",l:"Contratos"},{k:"txs",i:"⛓️",l:"TXs Fuji"},{k:"alerts",i:"🚨",l:"Alertas",b:1},{k:"fees",i:"💼",l:"Revenue"},{k:"audit",i:"🔍",l:"Auditoría"}];
   const PSTATS=[{i:"💰",l:"En Escrow",v:"$284K",s:"USDC",c:C.yellow},{i:"✅",l:"Liberado",v:"$84K",s:"hitos OK",c:C.success},{i:"⛓️",l:"TXs Fuji",v:"3,891",s:"on-chain",c:"#8B5CF6"},{i:"🏦",l:"Fees",v:"$1,260",s:"1.5%",c:C.orange},{i:"🏗️",l:"Proyectos",v:"47",s:"contratos",c:"#3B82F6"},{i:"👥",l:"Inversores",v:"1,240",s:"wallets",c:"#F59E0B"}];
   const riskC={LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
@@ -1648,7 +1670,7 @@ function Admin({setPage}: {setPage: (p: PageType) => void}){
             {PSTATS.map((m,i)=><div key={i} className="dc" style={{padding:"14px 16px",borderLeft:`3px solid ${m.c}`}}><div style={{fontSize:20,marginBottom:5}}>{m.i}</div><div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:m.c,lineHeight:1}}>{m.v}</div><div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",marginTop:3,color:"rgba(255,255,255,.35)"}}>{m.l}</div><div style={{fontSize:9,color:"rgba(255,255,255,.2)",marginTop:1}}>{m.s}</div></div>)}
           </div>
           <div className="dc" style={{padding:16,marginBottom:14}}><div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",color:"rgba(255,255,255,.3)",marginBottom:12}}>FLUJO CAPITAL — AVALANCHE FUJI</div><div style={{height:40,display:"flex",border:"1.5px solid #333",borderRadius:4,overflow:"hidden",marginBottom:9}}>{[{l:"LIBERADO",pct:30,c:C.success},{l:"ESCROW",pct:55,c:C.yellow},{l:"FEE",pct:.4,c:C.orange},{l:"",pct:14.6,c:"#2A2A2A"}].map((s,i)=><div key={i} style={{flex:s.pct,background:s.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:s.c===C.yellow?"#111":"#fff",minWidth:s.pct>3?36:0}}>{s.pct>3&&s.l}</div>)}</div><div style={{display:"flex",gap:16,flexWrap:"wrap"}}>{[{c:C.success,l:"Liberado 30%"},{c:C.yellow,l:"Escrow 55%"},{c:C.orange,l:"Fee 0.4%"},{c:"#333",l:"Libre 14.6%"}].map((l,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"rgba(255,255,255,.4)"}}><div style={{width:8,height:8,borderRadius:2,background:l.c}}/>{l.l}</div>)}</div></div>
-          <div className="dc" style={{overflow:"hidden"}}><div style={{padding:"10px 14px",borderBottom:"1px solid #2A2A2A",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",color:"#fff"}}>🚨 Alertas</span></div>{ALERTS.map((a,i)=><div key={i} style={{padding:"10px 14px",borderBottom:`1px solid #1E1E1E`,display:"flex",gap:9,alignItems:"center"}}><span style={{fontSize:13}}>{a.lv==="HIGH"?"🔴":a.lv==="MED"?"🟡":"🟢"}</span><div style={{flex:1}}><span style={{fontSize:11,fontWeight:700,color:riskC[a.lv]}}>[{a.lv}] </span><span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{a.p} — {a.m}</span></div><span style={{fontSize:9,color:"rgba(255,255,255,.2)",fontFamily:"'JetBrains Mono',monospace"}}>{a.t}</span></div>)}</div>
+          <div className="dc" style={{overflow:"hidden"}}><div style={{padding:"10px 14px",borderBottom:"1px solid #2A2A2A",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",color:"#fff"}}>🚨 Alertas</span></div>{ALERTS.map((a,i)=><div key={i} style={{padding:"10px 14px",borderBottom:`1px solid #1E1E1E`,display:"flex",gap:9,alignItems:"center"}}><span style={{fontSize:13}}>{a.lv==="HIGH"?"🔴":a.lv==="MED"?"🟡":"🟢"}</span><div style={{flex:1}}><span style={{fontSize:11,fontWeight:700,color:riskC[a.lv as keyof typeof riskC]}}>[{a.lv}] </span><span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{a.p} — {a.m}</span></div><span style={{fontSize:9,color:"rgba(255,255,255,.2)",fontFamily:"'JetBrains Mono',monospace"}}>{a.t}</span></div>)}</div>
         </div>}
 
         {sec==="contracts"&&<div className="dc" style={{overflow:"hidden"}}>
@@ -1660,7 +1682,7 @@ function Admin({setPage}: {setPage: (p: PageType) => void}){
               <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:C.yellow}}>${p.locked.toLocaleString()}</span></td>
               <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:C.success}}>${p.released.toLocaleString()}</span></td>
               <td><span style={{fontFamily:"'JetBrains Mono',monospace",color:C.orange,fontSize:11}}>${p.fee}</span></td>
-              <td><span style={{fontSize:9,fontWeight:700,padding:"2px 7px",background:riskBg[p.risk],color:riskC[p.risk],borderRadius:999}}>{p.risk}</span></td>
+              <td><span style={{fontSize:9,fontWeight:700,padding:"2px 7px",background:riskBg[p.risk as keyof typeof riskBg],color:riskC[p.risk as keyof typeof riskC],borderRadius:999}}>{p.risk}</span></td>
               <td><div style={{display:"flex",gap:4}}><button className="btn-ghost-dark" style={{padding:"3px 8px",fontSize:10}}>Ver</button>{p.risk==="HIGH"&&<button style={{background:"#FEE2E2",color:"#991B1B",border:"1px solid #EF4444",borderRadius:4,padding:"3px 8px",fontSize:9,fontWeight:700,cursor:"pointer"}}>⚠️ Acción</button>}</div></td>
             </tr>)}</tbody>
           </table></div>
