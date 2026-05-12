@@ -6,15 +6,34 @@ import { useState, useRef, useEffect, createContext, useContext } from "react";
 // MOCK PRIVY SDK FOR PROTOTYPE PREVIEW
 // (En producción, reemplazar con import real de @privy-io/react-auth)
 // ═══════════════════════════════════════════════════════════════════
-const PrivyContext = createContext();
-const PrivyProvider = ({ children, appId, config }) => {
+interface PrivyUser {
+  wallet?: { address: string };
+  email?: { address: string } | null;
+}
+
+interface PrivyContextType {
+  ready: boolean;
+  authenticated: boolean;
+  user: PrivyUser | null;
+  login: () => void;
+  logout: () => void;
+}
+
+const PrivyContext = createContext<PrivyContextType>({
+  ready: false,
+  authenticated: false,
+  user: null,
+  login: () => {},
+  logout: () => {},
+});
+const PrivyProvider = ({ children, appId, config }: { children: React.ReactNode; appId?: string; config?: Record<string, unknown> }) => {
   const [authenticated, setAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<PrivyUser | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const login = () => setIsModalOpen(true);
 
-  const simulateLogin = (method) => {
+  const simulateLogin = (method: 'email' | 'google' | 'wallet') => {
     setIsModalOpen(false);
     setAuthenticated(true);
     setUser({
@@ -67,11 +86,14 @@ const PrivyProvider = ({ children, appId, config }) => {
     </PrivyContext.Provider>
   );
 };
-const usePrivy = () => useContext(PrivyContext);
+const usePrivy = () => useContext(PrivyContext) as PrivyContextType;
 
 // ═══════════════════════════════════════════════════════════════════
 // I18N SYSTEM (Next.js Hydration Safe)
 // ═══════════════════════════════════════════════════════════════════
+type LangKey = 'es' | 'en';
+type TranslationKey = keyof typeof translations.es;
+
 const translations = {
   es: {
     nav_explore: "EXPLORADOR", nav_create: "CREAR CAMPAÑA", nav_admin: "ADMIN", nav_login: "Entrar", nav_register: "Registro",
@@ -91,34 +113,54 @@ const translations = {
   }
 };
 
-const I18nContext = createContext();
-export const I18nProvider = ({ children }) => {
-  const [lang, setLang] = useState('es');
+interface I18nContextType {
+  lang: LangKey;
+  setLang: (lang: LangKey) => void;
+  t: (key: TranslationKey) => string;
+}
+
+const I18nContext = createContext<I18nContextType>({
+  lang: 'es',
+  setLang: () => {},
+  t: (key) => key,
+});
+export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
+  const [lang, setLang] = useState<LangKey>('es');
   
   useEffect(() => {
     const saved = localStorage.getItem('lang');
-    if (saved) setLang(saved);
+    if (saved === 'es' || saved === 'en') setLang(saved);
   }, []);
 
   useEffect(() => { 
     localStorage.setItem('lang', lang); 
   }, [lang]);
 
-  const t = (key) => translations[lang][key] || key;
+  const t = (key: TranslationKey): string => translations[lang][key] || key;
   return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
 };
-export const useI18n = () => useContext(I18nContext);
+export const useI18n = () => useContext(I18nContext) as I18nContextType;
 
 // ═══════════════════════════════════════════════════════════════════
 // THEME SYSTEM (Next.js Hydration Safe)
 // ═══════════════════════════════════════════════════════════════════
-const ThemeContext = createContext();
-export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('light');
+type ThemeMode = 'light' | 'dark';
+
+interface ThemeContextType {
+  theme: ThemeMode;
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'light',
+  toggleTheme: () => {},
+});
+export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+  const [theme, setTheme] = useState<ThemeMode>('light');
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
-    if (saved) {
+    if (saved === 'light' || saved === 'dark') {
       setTheme(saved);
     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setTheme('dark');
@@ -138,7 +180,7 @@ export const ThemeProvider = ({ children }) => {
   const toggleTheme = () => setTheme(p => p === 'light' ? 'dark' : 'light');
   return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
 };
-export const useTheme = () => useContext(ThemeContext);
+export const useTheme = () => useContext(ThemeContext) as ThemeContextType;
 
 // ═══════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM
@@ -468,8 +510,8 @@ tr:hover td{background:var(--bg-gray);}
 // ═══════════════════════════════════════════════════════════════════
 // SVG COMPONENTS (REPLACING EMOJIS)
 // ═══════════════════════════════════════════════════════════════════
-const CatIcon = ({ cat, size=24 }) => {
-  const s = { width: size, height: size, stroke: "currentColor", strokeWidth: 2, fill: "none", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } };
+const CatIcon = ({ cat, size=24 }: { cat: string; size?: number }) => {
+  const s = { width: size, height: size, stroke: "currentColor", strokeWidth: 2, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, style: { flexShrink: 0 } };
   switch(cat) {
     case "ENERGÍA": return <svg {...s} viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#F5C842" stroke="var(--text-main)"/></svg>;
     case "AGRI-TECH": return <svg {...s} viewBox="0 0 24 24"><path d="M12 22c4-4 8-9.33 8-14a8 8 0 1 0-16 0c0 4.67 4 10 8 14z" fill="#DCFCE7" stroke="var(--text-main)"/><path d="M12 22V10" stroke="var(--text-main)"/></svg>;
@@ -481,8 +523,8 @@ const CatIcon = ({ cat, size=24 }) => {
   }
 };
 
-const TrustIcon = ({ type }) => {
-  const s = { width: 28, height: 28, stroke: "#fff", strokeWidth: 2, fill: "none", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } };
+const TrustIcon = ({ type }: { type: string }) => {
+  const s = { width: 28, height: 28, stroke: "#fff", strokeWidth: 2, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, style: { flexShrink: 0 } };
   switch(type) {
     case "avax": return <svg {...s} viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/><path d="M12 10l-4 8h8l-4-8z" fill="#E84142" stroke="none"/></svg>;
     case "speed": return <svg {...s} viewBox="0 0 24 24" stroke="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#F5C842"/></svg>;
@@ -493,8 +535,8 @@ const TrustIcon = ({ type }) => {
   }
 };
 
-function ProjectCover({ cat }) {
-  const s = { width: '100%', height: '100%', display: 'block', objectFit: 'cover' };
+function ProjectCover({ cat }: { cat: string }) {
+  const s = { width: '100%', height: '100%', display: 'block', objectFit: 'cover' as const };
   if (cat === "ENERGÍA") {
     return (
       <svg style={s} viewBox="0 0 400 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
@@ -618,7 +660,15 @@ const MSC={
   active:{bg:"var(--bg-warn)",color:"var(--text-warn)",border:C.yellow,label:"⏳ ACTIVO"},
   pending:{bg:"var(--bg-gray)",color:"var(--text-main)",border:"var(--border-gray)",label:"🔒 PENDIENTE"}
 };
-const PROJECT_REWARDS=[
+interface ProjectReward {
+  id: string;
+  title: string;
+  minAmount: number;
+  type: string;
+  desc: string;
+}
+
+const PROJECT_REWARDS: ProjectReward[]=[
   {id:"r1",title:"Semilla Sol",minAmount:50,type:"NFT Badge",desc:"Recibe un NFT conmemorativo 'Semilla' en Avalanche Fuji y acceso al canal privado de Discord para inversores."},
   {id:"r2",title:"Panel Sponsor",minAmount:250,type:"NFT + Rev Share",desc:"Placa virtual on-chain con tu nombre en un panel solar + NFT 'Panel Sponsor' + 8% de Revenue Share proporcional."},
   {id:"r3",title:"Gobernanza VIP",minAmount:1000,type:"VIP + Rev Share",desc:"Poder de voto 2x en decisiones de la comunidad + NFT 'VIP' animado + llamada trimestral estratégica con los founders."},
@@ -628,7 +678,7 @@ const PROJECT_REWARDS=[
 // ═══════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ═══════════════════════════════════════════════════════════════════
-function Logo({ isDarkBg }){
+function Logo({ isDarkBg }: { isDarkBg?: boolean }){
   const tColor = isDarkBg ? "#fff" : "var(--text-main)";
   return (
     <div style={{display:"flex",alignItems:"center",gap:9}}>
@@ -641,13 +691,13 @@ function Logo({ isDarkBg }){
 
 function Ticker(){return <div className="ticker-wrap"><div className="ticker-inner">{[...LIVE_TXS,...LIVE_TXS].map((tx,i)=><span key={i} className="ticker-item"><span style={{width:6,height:6,borderRadius:"50%",background:C.success,animation:"pulse 1.5s infinite",display:"inline-block"}}/>{tx}<span style={{opacity:.3}}>·</span></span>)}</div></div>;}
 
-function Dot({color=C.success}){return <span style={{width:8,height:8,borderRadius:"50%",background:color,animation:"pulse 1.5s infinite",display:"inline-block"}}/>;}
+function Dot({color=C.success, style}: {color?: string; style?: React.CSSProperties}){return <span style={{width:8,height:8,borderRadius:"50%",background:color,animation:"pulse 1.5s infinite",display:"inline-block",...style}}/>;}
 
-function AvaxPill({text="Avalanche Fuji · Chain 43113",small}){return <span style={{display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg-avax)",border:`1.5px solid ${C.avax}55`,color:C.avax,borderRadius:999,padding:small?"2px 8px":"5px 12px",fontSize:small?9:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{text}</span>;}
+function AvaxPill({text="Avalanche Fuji · Chain 43113",small}: {text?: string; small?: boolean}){return <span style={{display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg-avax)",border:`1.5px solid ${C.avax}55`,color:C.avax,borderRadius:999,padding:small?"2px 8px":"5px 12px",fontSize:small?9:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{text}</span>;}
 
-function Hash({h}){
+function Hash({h}: {h: string}){
   const [copied, setCopied] = useState(false);
-  const handleCopy = (e) => {
+  const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     const text = h.includes('·') ? h.split('·')[0].trim() : h.replace(/.*:\s*/, '');
     const el = document.createElement('textarea');
@@ -668,10 +718,10 @@ function Hash({h}){
 
 function SnowtraceLink(){return <a href="https://testnet.snowtrace.io" target="_blank" rel="noreferrer" style={{fontSize:10,background:"var(--bg-avax)",color:C.avax,border:`1.5px solid ${C.avax}55`,padding:"2px 8px",borderRadius:999,fontWeight:700,textDecoration:"none"}}>Snowtrace ↗</a>;}
 
-function ProgressBar({pct,color=C.yellow,h=8}){return <div style={{height:h,background:C.grayBorder,border:`1.5px solid var(--text-main)`,borderRadius:999,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>=100?C.success:color,borderRadius:999,transition:"width .5s ease"}}/></div>;}
+function ProgressBar({pct,color=C.yellow,h=8}: {pct: number; color?: string; h?: number}){return <div style={{height:h,background:C.grayBorder,border:`1.5px solid var(--text-main)`,borderRadius:999,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>=100?C.success:color,borderRadius:999,transition:"width .5s ease"}}/></div>;}
 
 function BeeCursor() {
-  const cursorRef = useRef(null);
+  const cursorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
@@ -681,9 +731,9 @@ function BeeCursor() {
     let mouseY = -100;
     let cursorX = -100;
     let cursorY = -100;
-    let rafId;
+    let rafId: number;
 
-    const onMouseMove = (e) => {
+    const onMouseMove = (e: MouseEvent) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
     };
@@ -749,7 +799,10 @@ function BeeCursor() {
 // ═══════════════════════════════════════════════════════════════════
 // NAVIGATION BAR
 // ═══════════════════════════════════════════════════════════════════
-function Navbar({page,setPage,role,wallet}){
+type PageType = 'landing' | 'proyecto' | 'onboarding' | 'dashCreator' | 'dashInvestor' | 'explorador' | 'crearCampana' | 'admin';
+type RoleType = 'creador' | 'inversor' | null;
+
+function Navbar({page,setPage,role,wallet}: {page: PageType; setPage: (p: PageType) => void; role: RoleType; wallet: string | null}){
   const { t, lang, setLang } = useI18n();
   const { theme, toggleTheme } = useTheme();
   const { ready, authenticated, user, login, logout } = usePrivy();
@@ -760,7 +813,7 @@ function Navbar({page,setPage,role,wallet}){
   return <nav style={{position:"fixed",top:0,left:0,right:0,zIndex:300,background:bg,borderBottom:border,height:h,display:"flex",alignItems:"center",padding:"0 14px",justifyContent:"space-between",gap:8,transition:"background 0.3s"}}>
     <div onClick={()=>setPage("landing")} style={{cursor:"pointer",flexShrink:0}}><Logo isDarkBg={isAdmin} /></div>
     {!isAdmin&&<div className="rsp-nav-links" style={{display:"flex",gap:4}}>
-      {[{k:"explorador",l:t("nav_explore")},{k:"crear",l:t("nav_create")},{k:"admin",l:t("nav_admin")}].map(n=><button key={n.k} onClick={()=>setPage(n.k)} className={`nav-link ${page === n.k ? 'active' : ''}`}>{n.l}</button>)}
+      {([{k:"explorador" as PageType,l:t("nav_explore")},{k:"crearCampana" as PageType,l:t("nav_create")},{k:"admin" as PageType,l:t("nav_admin")}]).map(n=><button key={n.k} onClick={()=>setPage(n.k)} className={`nav-link ${page === n.k ? 'active' : ''}`}>{n.l}</button>)}
     </div>}
     {isAdmin&&<div className="rsp-nav-links" style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:"rgba(255,255,255,.3)"}}><Dot/><span style={{fontFamily:"'JetBrains Mono',monospace"}}>🔺 Fuji · Chain 43113 · Block #4,291,141</span></div>}
     <div style={{display:"flex",gap:12,alignItems:"center"}}>
@@ -780,7 +833,7 @@ function Navbar({page,setPage,role,wallet}){
         <button className="btn-outline" style={{padding:"7px 14px",fontSize:11,background:isAdmin?"#111":"transparent",color:isAdmin?"rgba(255,255,255,.6)":"var(--text-main)",borderColor:isAdmin?"#333":"var(--text-main)"}} onClick={login}>{t("nav_login")}</button>
         <button className="btn-primary" style={{padding:"7px 16px",fontSize:11,background:isAdmin?"#F5C842":"var(--text-main)",color:isAdmin?"#111":"var(--bg-main)",borderColor:isAdmin?"#333":"var(--text-main)"}} onClick={login}>{t("nav_register")}</button>
       </>}
-      {role&&<div style={{width:32,height:32,borderRadius:"50%",background:"var(--text-main)",color:C.yellow,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12,border:`2px solid var(--text-main)`,cursor:"pointer",flexShrink:0}} onClick={()=>setPage(role==="creator"?"dashboard-creator":"dashboard-investor")}>{role==="creator"?"CR":"IN"}</div>}
+      {role&&<div style={{width:32,height:32,borderRadius:"50%",background:"var(--text-main)",color:C.yellow,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12,border:`2px solid var(--text-main)`,cursor:"pointer",flexShrink:0}} onClick={()=>setPage(role==="creador"?"dashCreator":"dashInvestor")}>{role==="creador"?"CR":"IN"}</div>}
     </div>
   </nav>;
 }
@@ -788,21 +841,21 @@ function Navbar({page,setPage,role,wallet}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: LANDING
 // ═══════════════════════════════════════════════════════════════════
-function Landing({setPage}){
+function Landing({setPage}: {setPage: (p: PageType) => void}){
   const { t } = useI18n();
   const [filter,setFilter]=useState("TODOS");
   const [email,setEmail]=useState("");const [sent,setSent]=useState(false);
   
-  const bee1Ref = useRef(null);
-  const bee2Ref = useRef(null);
+  const bee1Ref = useRef<HTMLDivElement>(null);
+  const bee2Ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let mouseX = 0, mouseY = 0;
     let currentX1 = 0, currentY1 = 0;
     let currentX2 = 0, currentY2 = 0;
-    let rafId;
+    let rafId: number;
 
-    const onMouseMove = (e) => {
+    const onMouseMove = (e: MouseEvent) => {
       if (window.innerWidth <= 640) return;
       const normX = (e.clientX / window.innerWidth) * 2 - 1;
       const normY = (e.clientY / window.innerHeight) * 2 - 1;
@@ -867,7 +920,7 @@ function Landing({setPage}){
       <div className="d2" style={{marginBottom:30}}><AvaxPill text="OpenZeppelin Escrow · wagmi · Core / MetaMask · USDC · AVAX"/></div>
       <div className="d3 rsp-hero-cta" style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center",marginBottom:52}}>
         <button className="btn-primary" style={{fontSize:14,padding:"14px 32px",background:"var(--text-main)",color:"var(--bg-main)",borderColor:"var(--text-main)",boxShadow:"4px 4px 0 var(--text-main)"}} onClick={()=>document.getElementById("projects")?.scrollIntoView({behavior:"smooth"})}>{t("hero_btn_explore")}</button>
-        <button className="btn-outline" style={{fontSize:14,padding:"14px 32px",background:"rgba(255,255,255,.1)",color:"var(--text-main)",borderColor:"var(--text-main)"}} onClick={()=>setPage("crear")}>{t("hero_btn_create")}</button>
+        <button className="btn-outline" style={{fontSize:14,padding:"14px 32px",background:"rgba(255,255,255,.1)",color:"var(--text-main)",borderColor:"var(--text-main)"}} onClick={()=>setPage("crearCampana")}>{t("hero_btn_create")}</button>
       </div>
       <div className="d4 rsp-stats-bar" style={{display:"flex",gap:0,background:"var(--bg-main)",color:"var(--text-main)",border:`2px solid var(--text-main)`,borderRadius:8,boxShadow:`4px 4px 0 var(--text-main)`,overflow:"hidden",flexWrap:"wrap",maxWidth:800,width:"100%"}}>
         {STATS.map((s,i)=><div key={i} style={{flex:"1 1 150px",padding:"18px 20px",borderRight:i<3?`2px solid var(--text-main)`:"none",textAlign:"center"}}>
@@ -932,7 +985,7 @@ function Landing({setPage}){
             [{type:"security"},"OpenZeppelin Escrow","Solidity auditado"],
             [{type:"fee"},"1.5% Fee","Solo fondos liberados"],
             [{type:"wallet"},"Core / MetaMask","Sin custodia"]
-          ].map((t,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:9,flex:"1 1 150px"}}><TrustIcon type={t[0].type}/><div><div style={{fontWeight:700,fontSize:12,textTransform:"uppercase",color:"#fff"}}>{t[1]}</div><div style={{fontSize:10,opacity:.4,color:"#fff"}}>{t[2]}</div></div></div>)}
+          ].map((t,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:9,flex:"1 1 150px"}}><TrustIcon type={(t[0] as {type:string}).type}/><div><div style={{fontWeight:700,fontSize:12,textTransform:"uppercase",color:"#fff"}}>{t[1] as string}</div><div style={{fontSize:10,opacity:.4,color:"#fff"}}>{t[2] as string}</div></div></div>)}
         </div>
       </div>
     </section>
@@ -991,7 +1044,7 @@ function Landing({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: PROYECTO
 // ═══════════════════════════════════════════════════════════════════
-function Proyecto({setPage,wallet}){
+function Proyecto({setPage,wallet}: {setPage: (p: PageType) => void; wallet: string | null}){
   const { t } = useI18n();
   const { login, authenticated } = usePrivy();
   const [tab,setTab]=useState("hitos");
@@ -1011,7 +1064,7 @@ function Proyecto({setPage,wallet}){
   const currentAmount = Number(amount) || 0;
   const activeRewardId = PROJECT_REWARDS.slice().reverse().find(r => currentAmount >= r.minAmount)?.id;
 
-  const handleRewardClick = (r) => {
+  const handleRewardClick = (r: ProjectReward) => {
     setAmount(String(r.minAmount));
   };
 
@@ -1131,7 +1184,7 @@ function Proyecto({setPage,wallet}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: ONBOARDING
 // ═══════════════════════════════════════════════════════════════════
-function Onboarding({setPage,setRole}){
+function Onboarding({setPage,setRole}: {setPage: (p: PageType) => void; setRole: (r: RoleType) => void}){
   const { ready, authenticated, user, login } = usePrivy();
   const [step,setStep]=useState(0);
   const [selRole,setSelRole]=useState(null);
@@ -1229,7 +1282,7 @@ function Onboarding({setPage,setRole}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: DASHBOARD CREADOR
 // ═══════════════════════════════════════════════════════════════════
-function DashboardCreator({setPage}){
+function DashboardCreator({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("overview");
   const [voted,setVoted]=useState({});
   const sideItems=[{k:"overview",i:"📊",l:"Resumen"},{k:"milestones",i:"🎯",l:"Hitos & Escrow"},{k:"evidence",i:"📎",l:"Subir Evidencia"},{k:"txlog",i:"⛓️",l:"On-Chain Log"},{k:"settings",i:"⚙️",l:"Config"}];
@@ -1286,7 +1339,7 @@ function DashboardCreator({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: DASHBOARD INVERSOR
 // ═══════════════════════════════════════════════════════════════════
-function DashboardInvestor({setPage}){
+function DashboardInvestor({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("portfolio");
   const [claimed,setClaimed]=useState({});
   const [loadingClaim,setLoadingClaim]=useState(null);
@@ -1368,7 +1421,7 @@ function DashboardInvestor({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: EXPLORADOR
 // ═══════════════════════════════════════════════════════════════════
-function Explorador({setPage}){
+function Explorador({setPage}: {setPage: (p: PageType) => void}){
   const [search,setSearch]=useState("");
   const [filter,setFilter]=useState("TODOS");
   const [open,setOpen]=useState(null);
@@ -1445,7 +1498,7 @@ function Explorador({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // CREAR CAMPAÑA
 // ═══════════════════════════════════════════════════════════════════
-function CrearCampana({setPage}){
+function CrearCampana({setPage}: {setPage: (p: PageType) => void}){
   const [step,setStep]=useState(0);
   const [data,setData]=useState({name:"",cat:"",loc:"",desc:"",goal:"",dur:"",milestones:[{id:1,title:"",pct:25,deadline:""},{id:2,title:"",pct:25,deadline:""}],sym:"",rev:"",thresh:"",ttype:"erc20"});
   const [deploying,setDeploying]=useState(false);const [deployed,setDeployed]=useState(false);
@@ -1565,7 +1618,7 @@ function CrearCampana({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: ADMIN
 // ═══════════════════════════════════════════════════════════════════
-function Admin({setPage}){
+function Admin({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("overview");
   const [selContract,setSelContract]=useState(null);
   const sideItems=[{k:"overview",i:"📊",l:"Resumen Global"},{k:"contracts",i:"🔒",l:"Contratos"},{k:"txs",i:"⛓️",l:"TXs Fuji"},{k:"alerts",i:"🚨",l:"Alertas",b:1},{k:"fees",i:"💼",l:"Revenue"},{k:"audit",i:"🔍",l:"Auditoría"}];
