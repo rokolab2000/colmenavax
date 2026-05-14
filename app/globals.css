@@ -1,8 +1,51 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════
+   COLMENAVAX DESIGN SYSTEM - Theme Variables
+   ═══════════════════════════════════════════════════════════════════ */
+
 :root {
+  /* Core colors */
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* ColmenaVAX Theme */
+  --text-main: #111111;
+  --bg-main: #FFFFFF;
+  --bg-hero: #F5C842;
+  --bg-gray: #F4F4F4;
+  --border-gray: #E5E5E5;
+  --bg-success: #DCFCE7;
+  --text-success: #166534;
+  --bg-warn: #FFFBEB;
+  --text-warn: #D4841A;
+  --bg-avax: #FFF0F0;
+  --bg-blue: #E0F2FE;
+  --bg-purple: #F3E8FF;
+  --border-purple: #8B5CF6;
+  --text-purple: #5B21B6;
+  --bg-red: #FEE2E2;
+}
+
+[data-theme="dark"], .dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  
+  --text-main: #F9FAFB;
+  --bg-main: #0D0D0D;
+  --bg-hero: #111111;
+  --bg-gray: #1A1A1A;
+  --border-gray: #333333;
+  --bg-success: #064E3B;
+  --text-success: #6EE7B7;
+  --bg-warn: #422006;
+  --text-warn: #FBBF24;
+  --bg-avax: rgba(232, 65, 66, 0.1); 
+  --bg-blue: #082F49;
+  --bg-purple: #3B0764;
+  --border-purple: #6B21A8;
+  --text-purple: #D8B4FE;
+  --bg-red: rgba(239, 68, 68, 0.15);
 }
 
 @theme inline {
@@ -12,15 +55,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }

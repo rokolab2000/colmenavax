@@ -6,15 +6,34 @@ import { useState, useRef, useEffect, createContext, useContext } from "react";
 // MOCK PRIVY SDK FOR PROTOTYPE PREVIEW
 // (En producción, reemplazar con import real de @privy-io/react-auth)
 // ═══════════════════════════════════════════════════════════════════
-const PrivyContext = createContext();
-const PrivyProvider = ({ children, appId, config }) => {
+interface PrivyUser {
+  wallet?: { address: string };
+  email?: { address: string } | null;
+}
+
+interface PrivyContextType {
+  ready: boolean;
+  authenticated: boolean;
+  user: PrivyUser | null;
+  login: () => void;
+  logout: () => void;
+}
+
+const PrivyContext = createContext<PrivyContextType>({
+  ready: false,
+  authenticated: false,
+  user: null,
+  login: () => {},
+  logout: () => {},
+});
+const PrivyProvider = ({ children, appId, config }: { children: React.ReactNode; appId?: string; config?: Record<string, unknown> }) => {
   const [authenticated, setAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<PrivyUser | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const login = () => setIsModalOpen(true);
 
-  const simulateLogin = (method) => {
+  const simulateLogin = (method: 'email' | 'google' | 'wallet') => {
     setIsModalOpen(false);
     setAuthenticated(true);
     setUser({
@@ -67,11 +86,14 @@ const PrivyProvider = ({ children, appId, config }) => {
     </PrivyContext.Provider>
   );
 };
-const usePrivy = () => useContext(PrivyContext);
+const usePrivy = () => useContext(PrivyContext) as PrivyContextType;
 
 // ═══════════════════════════════════════════════════════════════════
 // I18N SYSTEM (Next.js Hydration Safe)
 // ═══════════════════════════════════════════════════════════════════
+type LangKey = 'es' | 'en';
+type TranslationKey = keyof typeof translations.es;
+
 const translations = {
   es: {
     nav_explore: "EXPLORADOR", nav_create: "CREAR CAMPAÑA", nav_admin: "ADMIN", nav_login: "Entrar", nav_register: "Registro",
@@ -91,34 +113,54 @@ const translations = {
   }
 };
 
-const I18nContext = createContext();
-export const I18nProvider = ({ children }) => {
-  const [lang, setLang] = useState('es');
+interface I18nContextType {
+  lang: LangKey;
+  setLang: (lang: LangKey) => void;
+  t: (key: TranslationKey) => string;
+}
+
+const I18nContext = createContext<I18nContextType>({
+  lang: 'es',
+  setLang: () => {},
+  t: (key) => key,
+});
+export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
+  const [lang, setLang] = useState<LangKey>('es');
   
   useEffect(() => {
     const saved = localStorage.getItem('lang');
-    if (saved) setLang(saved);
+    if (saved === 'es' || saved === 'en') setLang(saved);
   }, []);
 
   useEffect(() => { 
     localStorage.setItem('lang', lang); 
   }, [lang]);
 
-  const t = (key) => translations[lang][key] || key;
+  const t = (key: TranslationKey): string => translations[lang][key] || key;
   return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
 };
-export const useI18n = () => useContext(I18nContext);
+export const useI18n = () => useContext(I18nContext) as I18nContextType;
 
 // ═══════════════════════════════════════════════════════════════════
 // THEME SYSTEM (Next.js Hydration Safe)
 // ═══════════════════════════════════════════════════════════════════
-const ThemeContext = createContext();
-export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('light');
+type ThemeMode = 'light' | 'dark';
+
+interface ThemeContextType {
+  theme: ThemeMode;
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'light',
+  toggleTheme: () => {},
+});
+export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+  const [theme, setTheme] = useState<ThemeMode>('light');
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
-    if (saved) {
+    if (saved === 'light' || saved === 'dark') {
       setTheme(saved);
     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setTheme('dark');
@@ -138,7 +180,7 @@ export const ThemeProvider = ({ children }) => {
   const toggleTheme = () => setTheme(p => p === 'light' ? 'dark' : 'light');
   return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
 };
-export const useTheme = () => useContext(ThemeContext);
+export const useTheme = () => useContext(ThemeContext) as ThemeContextType;
 
 // ═══════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM
@@ -468,8 +510,8 @@ tr:hover td{background:var(--bg-gray);}
 // ═══════════════════════════════════════════════════════════════════
 // SVG COMPONENTS (REPLACING EMOJIS)
 // ═══════════════════════════════════════════════════════════════════
-const CatIcon = ({ cat, size=24 }) => {
-  const s = { width: size, height: size, stroke: "currentColor", strokeWidth: 2, fill: "none", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } };
+const CatIcon = ({ cat, size=24 }: { cat: string; size?: number }) => {
+  const s = { width: size, height: size, stroke: "currentColor", strokeWidth: 2, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, style: { flexShrink: 0 } };
   switch(cat) {
     case "ENERGÍA": return <svg {...s} viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#F5C842" stroke="var(--text-main)"/></svg>;
     case "AGRI-TECH": return <svg {...s} viewBox="0 0 24 24"><path d="M12 22c4-4 8-9.33 8-14a8 8 0 1 0-16 0c0 4.67 4 10 8 14z" fill="#DCFCE7" stroke="var(--text-main)"/><path d="M12 22V10" stroke="var(--text-main)"/></svg>;
@@ -481,8 +523,8 @@ const CatIcon = ({ cat, size=24 }) => {
   }
 };
 
-const TrustIcon = ({ type }) => {
-  const s = { width: 28, height: 28, stroke: "#fff", strokeWidth: 2, fill: "none", strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } };
+const TrustIcon = ({ type }: { type: string }) => {
+  const s = { width: 28, height: 28, stroke: "#fff", strokeWidth: 2, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, style: { flexShrink: 0 } };
   switch(type) {
     case "avax": return <svg {...s} viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/><path d="M12 10l-4 8h8l-4-8z" fill="#E84142" stroke="none"/></svg>;
     case "speed": return <svg {...s} viewBox="0 0 24 24" stroke="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="#F5C842"/></svg>;
@@ -493,8 +535,8 @@ const TrustIcon = ({ type }) => {
   }
 };
 
-function ProjectCover({ cat }) {
-  const s = { width: '100%', height: '100%', display: 'block', objectFit: 'cover' };
+function ProjectCover({ cat }: { cat: string }) {
+  const s = { width: '100%', height: '100%', display: 'block', objectFit: 'cover' as const };
   if (cat === "ENERGÍA") {
     return (
       <svg style={s} viewBox="0 0 400 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
@@ -583,7 +625,20 @@ const PROJECTS=[
   {id:5,cat:"SALUD",title:"CliniBus Perú",loc:"Lima, PE",raised:7800,goal:20000,backers:62,days:31,live:false,contract:"0xE8f4...2e3C",tokenSymbol:"CLN",desc:"Clínicas móviles con IA diagnóstica para zonas sin hospitales."},
   {id:6,cat:"AGUA",title:"AguaPura Chile",loc:"Atacama, CL",raised:12600,goal:18000,backers:99,days:19,live:false,contract:"0xF1a5...9b0D",tokenSymbol:"APR",desc:"Captación de agua para comunidades del desierto atacameño."},
 ];
-const MILESTONES=[
+interface Milestone {
+  id: number;
+  title: string;
+  pct: number;
+  amount: number;
+  asset: string;
+  status: MilestoneStatusKey;
+  hash: string | null;
+  date: string;
+  votes: number;
+  required: number;
+}
+
+const MILESTONES: Milestone[] = [
   {id:1,title:"Adquisición de Equipos",pct:30,amount:7500,asset:"USDC",status:"released",hash:"0x7f3a...d92b",date:"Feb 2025",votes:143,required:100},
   {id:2,title:"Instalación Lote 1 (50 hogares)",pct:30,amount:7500,asset:"USDC",status:"released",hash:"0x2c1e...4a88",date:"Mar 2025",votes:128,required:100},
   {id:3,title:"Instalación Lote 2 (100 hogares)",pct:25,amount:6250,asset:"USDC",status:"active",hash:null,date:"Abr 2025",votes:47,required:72},
@@ -600,25 +655,66 @@ const LIVE_TXS=[
   "MicroPréstamo AR — Revenue share +$4,200 USDC · 0x9e4b...ff01 · Fuji #4,290,988",
   "CliniBus Perú — Inversión en escrow +1.2 AVAX · 0x2c1e...4a88 · Fuji #4,290,750",
 ];
-const ADMIN_TXS=[
+type TxType = "RELEASE" | "EVIDENCE" | "FEE" | "INVEST";
+type RiskLevel = "LOW" | "MED" | "HIGH" | "NONE";
+
+interface AdminTx {
+  hash: string;
+  project: string;
+  type: TxType;
+  amount: string;
+  block: string;
+  time: string;
+}
+
+interface AdminProject {
+  id: string;
+  name: string;
+  raised: number;
+  locked: number;
+  released: number;
+  fee: number;
+  backers: number;
+  risk: RiskLevel;
+  contract: string;
+}
+
+const ADMIN_TXS: AdminTx[] = [
   {hash:"0x7f3a...d92b",project:"SolarHogar LATAM",type:"RELEASE",amount:"+$7,500 USDC",block:"#4,291,112",time:"hace 2h"},
   {hash:"0x9e4b...ff01",project:"AgroDAO Bolivia",type:"EVIDENCE",amount:"—",block:"#4,291,099",time:"hace 5h"},
   {hash:"0x2c1e...4a88",project:"MicroPréstamo AR",type:"FEE",amount:"-$663 USDC",block:"#4,290,800",time:"ayer"},
   {hash:"0xa1b2...cc44",project:"SolarHogar LATAM",type:"INVEST",amount:"+$150 USDC",block:"#4,290,750",time:"ayer"},
 ];
-const ADMIN_PROJECTS=[
+const ADMIN_PROJECTS: AdminProject[] = [
   {id:"SLR",name:"SolarHogar LATAM",raised:18400,locked:3400,released:15000,fee:225,backers:143,risk:"LOW",contract:"0xA3f2...9c4E"},
   {id:"AGR",name:"AgroDAO Bolivia",raised:31000,locked:6200,released:24800,fee:372,backers:211,risk:"LOW",contract:"0xB7d1...5a1F"},
   {id:"MPR",name:"MicroPréstamo AR",raised:44200,locked:0,released:44200,fee:663,backers:318,risk:"NONE",contract:"0xC2f0...8b3A"},
   {id:"EDU",name:"Aula Digital Mx",raised:9200,locked:9200,released:0,fee:0,backers:87,risk:"MED",contract:"0xD5c3...7d2B"},
   {id:"CLN",name:"CliniBus Perú",raised:7800,locked:7800,released:0,fee:0,backers:62,risk:"HIGH",contract:"0xE8f4...2e3C"},
 ];
-const MSC={
+interface MilestoneStatus {
+  bg: string;
+  color: string;
+  border: string;
+  label: string;
+}
+
+type MilestoneStatusKey = 'released' | 'active' | 'pending';
+
+const MSC: Record<MilestoneStatusKey, MilestoneStatus> = {
   released:{bg:"var(--bg-success)",color:"var(--text-success)",border:C.success,label:"✓ LIBERADO"},
   active:{bg:"var(--bg-warn)",color:"var(--text-warn)",border:C.yellow,label:"⏳ ACTIVO"},
   pending:{bg:"var(--bg-gray)",color:"var(--text-main)",border:"var(--border-gray)",label:"🔒 PENDIENTE"}
 };
-const PROJECT_REWARDS=[
+interface ProjectReward {
+  id: string;
+  title: string;
+  minAmount: number;
+  type: string;
+  desc: string;
+}
+
+const PROJECT_REWARDS: ProjectReward[]=[
   {id:"r1",title:"Semilla Sol",minAmount:50,type:"NFT Badge",desc:"Recibe un NFT conmemorativo 'Semilla' en Avalanche Fuji y acceso al canal privado de Discord para inversores."},
   {id:"r2",title:"Panel Sponsor",minAmount:250,type:"NFT + Rev Share",desc:"Placa virtual on-chain con tu nombre en un panel solar + NFT 'Panel Sponsor' + 8% de Revenue Share proporcional."},
   {id:"r3",title:"Gobernanza VIP",minAmount:1000,type:"VIP + Rev Share",desc:"Poder de voto 2x en decisiones de la comunidad + NFT 'VIP' animado + llamada trimestral estratégica con los founders."},
@@ -628,7 +724,7 @@ const PROJECT_REWARDS=[
 // ═══════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ═══════════════════════════════════════════════════════════════════
-function Logo({ isDarkBg }){
+function Logo({ isDarkBg }: { isDarkBg?: boolean }){
   const tColor = isDarkBg ? "#fff" : "var(--text-main)";
   return (
     <div style={{display:"flex",alignItems:"center",gap:9}}>
@@ -641,13 +737,13 @@ function Logo({ isDarkBg }){
 
 function Ticker(){return <div className="ticker-wrap"><div className="ticker-inner">{[...LIVE_TXS,...LIVE_TXS].map((tx,i)=><span key={i} className="ticker-item"><span style={{width:6,height:6,borderRadius:"50%",background:C.success,animation:"pulse 1.5s infinite",display:"inline-block"}}/>{tx}<span style={{opacity:.3}}>·</span></span>)}</div></div>;}
 
-function Dot({color=C.success}){return <span style={{width:8,height:8,borderRadius:"50%",background:color,animation:"pulse 1.5s infinite",display:"inline-block"}}/>;}
+function Dot({color=C.success, style}: {color?: string; style?: React.CSSProperties}){return <span style={{width:8,height:8,borderRadius:"50%",background:color,animation:"pulse 1.5s infinite",display:"inline-block",...style}}/>;}
 
-function AvaxPill({text="Avalanche Fuji · Chain 43113",small}){return <span style={{display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg-avax)",border:`1.5px solid ${C.avax}55`,color:C.avax,borderRadius:999,padding:small?"2px 8px":"5px 12px",fontSize:small?9:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{text}</span>;}
+function AvaxPill({text="Avalanche Fuji · Chain 43113",small}: {text?: string; small?: boolean}){return <span style={{display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg-avax)",border:`1.5px solid ${C.avax}55`,color:C.avax,borderRadius:999,padding:small?"2px 8px":"5px 12px",fontSize:small?9:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{text}</span>;}
 
-function Hash({h}){
+function Hash({h}: {h: string}){
   const [copied, setCopied] = useState(false);
-  const handleCopy = (e) => {
+  const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     const text = h.includes('·') ? h.split('·')[0].trim() : h.replace(/.*:\s*/, '');
     const el = document.createElement('textarea');
@@ -668,10 +764,10 @@ function Hash({h}){
 
 function SnowtraceLink(){return <a href="https://testnet.snowtrace.io" target="_blank" rel="noreferrer" style={{fontSize:10,background:"var(--bg-avax)",color:C.avax,border:`1.5px solid ${C.avax}55`,padding:"2px 8px",borderRadius:999,fontWeight:700,textDecoration:"none"}}>Snowtrace ↗</a>;}
 
-function ProgressBar({pct,color=C.yellow,h=8}){return <div style={{height:h,background:C.grayBorder,border:`1.5px solid var(--text-main)`,borderRadius:999,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>=100?C.success:color,borderRadius:999,transition:"width .5s ease"}}/></div>;}
+function ProgressBar({pct,color=C.yellow,h=8}: {pct: number; color?: string; h?: number}){return <div style={{height:h,background:C.grayBorder,border:`1.5px solid var(--text-main)`,borderRadius:999,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>=100?C.success:color,borderRadius:999,transition:"width .5s ease"}}/></div>;}
 
 function BeeCursor() {
-  const cursorRef = useRef(null);
+  const cursorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
@@ -681,9 +777,9 @@ function BeeCursor() {
     let mouseY = -100;
     let cursorX = -100;
     let cursorY = -100;
-    let rafId;
+    let rafId: number;
 
-    const onMouseMove = (e) => {
+    const onMouseMove = (e: MouseEvent) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
     };
@@ -748,8 +844,11 @@ function BeeCursor() {
 
 // ═══════════════════════════════════════════════════════════════════
 // NAVIGATION BAR
-// ═══════════════════════════════════════════════════════════════════
-function Navbar({page,setPage,role,wallet}){
+// ═════════════════════════���═════════════════════════════════════════
+type PageType = 'landing' | 'proyecto' | 'onboarding' | 'dashCreator' | 'dashInvestor' | 'explorador' | 'crearCampana' | 'admin';
+type RoleType = 'creador' | 'inversor' | null;
+
+function Navbar({page,setPage,role,wallet}: {page: PageType; setPage: (p: PageType) => void; role: RoleType; wallet: string | null}){
   const { t, lang, setLang } = useI18n();
   const { theme, toggleTheme } = useTheme();
   const { ready, authenticated, user, login, logout } = usePrivy();
@@ -760,7 +859,7 @@ function Navbar({page,setPage,role,wallet}){
   return <nav style={{position:"fixed",top:0,left:0,right:0,zIndex:300,background:bg,borderBottom:border,height:h,display:"flex",alignItems:"center",padding:"0 14px",justifyContent:"space-between",gap:8,transition:"background 0.3s"}}>
     <div onClick={()=>setPage("landing")} style={{cursor:"pointer",flexShrink:0}}><Logo isDarkBg={isAdmin} /></div>
     {!isAdmin&&<div className="rsp-nav-links" style={{display:"flex",gap:4}}>
-      {[{k:"explorador",l:t("nav_explore")},{k:"crear",l:t("nav_create")},{k:"admin",l:t("nav_admin")}].map(n=><button key={n.k} onClick={()=>setPage(n.k)} className={`nav-link ${page === n.k ? 'active' : ''}`}>{n.l}</button>)}
+      {([{k:"explorador" as PageType,l:t("nav_explore")},{k:"crearCampana" as PageType,l:t("nav_create")},{k:"admin" as PageType,l:t("nav_admin")}]).map(n=><button key={n.k} onClick={()=>setPage(n.k)} className={`nav-link ${page === n.k ? 'active' : ''}`}>{n.l}</button>)}
     </div>}
     {isAdmin&&<div className="rsp-nav-links" style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:"rgba(255,255,255,.3)"}}><Dot/><span style={{fontFamily:"'JetBrains Mono',monospace"}}>🔺 Fuji · Chain 43113 · Block #4,291,141</span></div>}
     <div style={{display:"flex",gap:12,alignItems:"center"}}>
@@ -780,7 +879,7 @@ function Navbar({page,setPage,role,wallet}){
         <button className="btn-outline" style={{padding:"7px 14px",fontSize:11,background:isAdmin?"#111":"transparent",color:isAdmin?"rgba(255,255,255,.6)":"var(--text-main)",borderColor:isAdmin?"#333":"var(--text-main)"}} onClick={login}>{t("nav_login")}</button>
         <button className="btn-primary" style={{padding:"7px 16px",fontSize:11,background:isAdmin?"#F5C842":"var(--text-main)",color:isAdmin?"#111":"var(--bg-main)",borderColor:isAdmin?"#333":"var(--text-main)"}} onClick={login}>{t("nav_register")}</button>
       </>}
-      {role&&<div style={{width:32,height:32,borderRadius:"50%",background:"var(--text-main)",color:C.yellow,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12,border:`2px solid var(--text-main)`,cursor:"pointer",flexShrink:0}} onClick={()=>setPage(role==="creator"?"dashboard-creator":"dashboard-investor")}>{role==="creator"?"CR":"IN"}</div>}
+      {role&&<div style={{width:32,height:32,borderRadius:"50%",background:"var(--text-main)",color:C.yellow,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12,border:`2px solid var(--text-main)`,cursor:"pointer",flexShrink:0}} onClick={()=>setPage(role==="creador"?"dashCreator":"dashInvestor")}>{role==="creador"?"CR":"IN"}</div>}
     </div>
   </nav>;
 }
@@ -788,21 +887,21 @@ function Navbar({page,setPage,role,wallet}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: LANDING
 // ═══════════════════════════════════════════════════════════════════
-function Landing({setPage}){
+function Landing({setPage}: {setPage: (p: PageType) => void}){
   const { t } = useI18n();
   const [filter,setFilter]=useState("TODOS");
   const [email,setEmail]=useState("");const [sent,setSent]=useState(false);
   
-  const bee1Ref = useRef(null);
-  const bee2Ref = useRef(null);
+  const bee1Ref = useRef<HTMLDivElement>(null);
+  const bee2Ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let mouseX = 0, mouseY = 0;
     let currentX1 = 0, currentY1 = 0;
     let currentX2 = 0, currentY2 = 0;
-    let rafId;
+    let rafId: number;
 
-    const onMouseMove = (e) => {
+    const onMouseMove = (e: MouseEvent) => {
       if (window.innerWidth <= 640) return;
       const normX = (e.clientX / window.innerWidth) * 2 - 1;
       const normY = (e.clientY / window.innerHeight) * 2 - 1;
@@ -867,7 +966,7 @@ function Landing({setPage}){
       <div className="d2" style={{marginBottom:30}}><AvaxPill text="OpenZeppelin Escrow · wagmi · Core / MetaMask · USDC · AVAX"/></div>
       <div className="d3 rsp-hero-cta" style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center",marginBottom:52}}>
         <button className="btn-primary" style={{fontSize:14,padding:"14px 32px",background:"var(--text-main)",color:"var(--bg-main)",borderColor:"var(--text-main)",boxShadow:"4px 4px 0 var(--text-main)"}} onClick={()=>document.getElementById("projects")?.scrollIntoView({behavior:"smooth"})}>{t("hero_btn_explore")}</button>
-        <button className="btn-outline" style={{fontSize:14,padding:"14px 32px",background:"rgba(255,255,255,.1)",color:"var(--text-main)",borderColor:"var(--text-main)"}} onClick={()=>setPage("crear")}>{t("hero_btn_create")}</button>
+        <button className="btn-outline" style={{fontSize:14,padding:"14px 32px",background:"rgba(255,255,255,.1)",color:"var(--text-main)",borderColor:"var(--text-main)"}} onClick={()=>setPage("crearCampana")}>{t("hero_btn_create")}</button>
       </div>
       <div className="d4 rsp-stats-bar" style={{display:"flex",gap:0,background:"var(--bg-main)",color:"var(--text-main)",border:`2px solid var(--text-main)`,borderRadius:8,boxShadow:`4px 4px 0 var(--text-main)`,overflow:"hidden",flexWrap:"wrap",maxWidth:800,width:"100%"}}>
         {STATS.map((s,i)=><div key={i} style={{flex:"1 1 150px",padding:"18px 20px",borderRight:i<3?`2px solid var(--text-main)`:"none",textAlign:"center"}}>
@@ -932,7 +1031,7 @@ function Landing({setPage}){
             [{type:"security"},"OpenZeppelin Escrow","Solidity auditado"],
             [{type:"fee"},"1.5% Fee","Solo fondos liberados"],
             [{type:"wallet"},"Core / MetaMask","Sin custodia"]
-          ].map((t,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:9,flex:"1 1 150px"}}><TrustIcon type={t[0].type}/><div><div style={{fontWeight:700,fontSize:12,textTransform:"uppercase",color:"#fff"}}>{t[1]}</div><div style={{fontSize:10,opacity:.4,color:"#fff"}}>{t[2]}</div></div></div>)}
+          ].map((t,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:9,flex:"1 1 150px"}}><TrustIcon type={(t[0] as {type:string}).type}/><div><div style={{fontWeight:700,fontSize:12,textTransform:"uppercase",color:"#fff"}}>{t[1] as string}</div><div style={{fontSize:10,opacity:.4,color:"#fff"}}>{t[2] as string}</div></div></div>)}
         </div>
       </div>
     </section>
@@ -991,7 +1090,7 @@ function Landing({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: PROYECTO
 // ═══════════════════════════════════════════════════════════════════
-function Proyecto({setPage,wallet}){
+function Proyecto({setPage,wallet}: {setPage: (p: PageType) => void; wallet: string | null}){
   const { t } = useI18n();
   const { login, authenticated } = usePrivy();
   const [tab,setTab]=useState("hitos");
@@ -1011,7 +1110,7 @@ function Proyecto({setPage,wallet}){
   const currentAmount = Number(amount) || 0;
   const activeRewardId = PROJECT_REWARDS.slice().reverse().find(r => currentAmount >= r.minAmount)?.id;
 
-  const handleRewardClick = (r) => {
+  const handleRewardClick = (r: ProjectReward) => {
     setAmount(String(r.minAmount));
   };
 
@@ -1111,7 +1210,7 @@ function Proyecto({setPage,wallet}){
                <div className="pulse-badge" style={{padding:"9px 12px", background:"rgba(245,200,66,0.15)", border:`1.5px dashed ${C.yellow}`, borderRadius:6, marginBottom:14, display:"flex", alignItems:"center", gap:10}}>
                  <span style={{fontSize:20}}>🎁</span>
                  <div>
-                   <div style={{fontWeight:800, textTransform:"uppercase", fontSize:11, color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{PROJECT_REWARDS.find(r=>r.id===activeRewardId).title}</div>
+                   <div style={{fontWeight:800, textTransform:"uppercase", fontSize:11, color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{PROJECT_REWARDS.find(r=>r.id===activeRewardId)?.title}</div>
                    <div style={{opacity:0.7, fontSize:10, color:"var(--text-main)", marginTop:1}} className="text-gray-900 dark:text-white">{t("reward_unlocked")}</div>
                  </div>
                </div>
@@ -1131,10 +1230,10 @@ function Proyecto({setPage,wallet}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: ONBOARDING
 // ═══════════════════════════════════════════════════════════════════
-function Onboarding({setPage,setRole}){
+function Onboarding({setPage,setRole}: {setPage: (p: PageType) => void; setRole: (r: RoleType) => void}){
   const { ready, authenticated, user, login } = usePrivy();
   const [step,setStep]=useState(0);
-  const [selRole,setSelRole]=useState(null);
+  const [selRole,setSelRole]=useState<string | null>(null);
   const [name,setName]=useState("");
   const [email,setEmail]=useState("");
 
@@ -1150,7 +1249,7 @@ function Onboarding({setPage,setRole}){
   const STEPS=["Perfil","Acceso","Datos","Listo"];
   const ROLES=[{id:"backer",i:"💰",l:"Inversor / Donante",d:"Apoyo proyectos y recibo dividendos en USDC/AVAX."},{id:"creator",i:"🚀",l:"Creador de Proyecto",d:"Tengo una startup u ONG y quiero levantar capital con escrow on-chain."}];
 
-  const doFinish=()=>{setRole(selRole);setPage(selRole==="creator"?"dashboard-creator":"dashboard-investor");};
+  const doFinish=()=>{const role = selRole==="creator"?"creador":"inversor" as RoleType;setRole(role);setPage(role==="creador"?"dashCreator":"dashInvestor");};
 
   return <div className="rsp-split" style={{display:"flex",minHeight:"100vh",paddingTop:64}}>
     <div className="rsp-split-left" style={{width:"38%",background:"var(--bg-hero)",backgroundImage:HEX,padding:"40px 32px",display:"flex",flexDirection:"column",justifyContent:"space-between",borderRight:`2px solid var(--text-main)`,color:"var(--text-main)", transition:"background 0.3s ease"}}>
@@ -1229,9 +1328,9 @@ function Onboarding({setPage,setRole}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: DASHBOARD CREADOR
 // ═══════════════════════════════════════════════════════════════════
-function DashboardCreator({setPage}){
+function DashboardCreator({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("overview");
-  const [voted,setVoted]=useState({});
+  const [voted,setVoted]=useState<Record<string | number, boolean | string>>({});
   const sideItems=[{k:"overview",i:"📊",l:"Resumen"},{k:"milestones",i:"🎯",l:"Hitos & Escrow"},{k:"evidence",i:"📎",l:"Subir Evidencia"},{k:"txlog",i:"⛓️",l:"On-Chain Log"},{k:"settings",i:"⚙️",l:"Config"}];
   const metrics=[{i:"💰",l:"Recaudado",v:"$18,400",s:"USDC",c:C.yellow},{i:"🔒",l:"En Escrow",v:"$3,400",s:"ColmenaCampaign.sol",c:"var(--bg-blue)"},{i:"✅",l:"Liberado",v:"$15,000",s:"2 hitos OK",c:"var(--bg-success)"},{i:"👥",l:"Inversores",v:"143",s:"holders SLR",c:"var(--bg-purple)"}];
   const TXLOG=[{d:"15 Mar 14:32",e:"💸 Hito 2 liberado",a:"+$7,500 USDC",h:"0x7f3a...d92b",b:"#4,291,112"},{d:"15 Mar 14:31",e:"🗳️ Quorum (128/143)",a:"—",h:"0x2c1e...4a88",b:"#4,291,111"},{d:"28 Feb 09:14",e:"💸 Hito 1 liberado",a:"+$7,500 USDC",h:"0xb4d9...3f01",b:"#4,288,022"},{d:"01 Feb 11:00",e:"🔒 Campaña desplegada",a:"—",h:"0x1a2b...cc44",b:"#4,270,001"}];
@@ -1286,16 +1385,16 @@ function DashboardCreator({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: DASHBOARD INVERSOR
 // ═══════════════════════════════════════════════════════════════════
-function DashboardInvestor({setPage}){
+function DashboardInvestor({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("portfolio");
-  const [claimed,setClaimed]=useState({});
-  const [loadingClaim,setLoadingClaim]=useState(null);
-  const [voted,setVoted]=useState({});
+  const [claimed,setClaimed]=useState<Record<string, boolean>>({});
+  const [loadingClaim,setLoadingClaim]=useState<string | null>(null);
+  const [voted,setVoted]=useState<Record<string | number, boolean | string>>({});
   const sideItems=[{k:"portfolio",i:"💼",l:"Portfolio"},{k:"dividends",i:"💸",l:"Dividendos"},{k:"tokens",i:"🪙",l:"Mis Tokens"},{k:"votes",i:"🗳️",l:"Votar Hitos"},{k:"activity",i:"⛓️",l:"Actividad"}];
   const totalInv=PORTFOLIO.reduce((a,p)=>a+p.invested,0);
   const totalVal=PORTFOLIO.reduce((a,p)=>a+p.currentVal,0);
   const totalPend=PORTFOLIO.reduce((a,p)=>a+p.pending,0);
-  const doClaim=(sym)=>{setLoadingClaim(sym);setTimeout(()=>{setLoadingClaim(null);setClaimed(c=>({...c,[sym]:true}));},1800);};
+  const doClaim=(sym: string)=>{setLoadingClaim(sym);setTimeout(()=>{setLoadingClaim(null);setClaimed(c=>({...c,[sym]:true}));},1800);};
   const ACTIVITY=[{d:"15 Mar",e:"💸 Dividendos Claim",a:"+$42 USDC",h:"0x7f3a...d92b",b:"Fuji #4,291,112"},{d:"15 Mar",e:"🪙 Tokens SLR recibidos",a:"+120 SLR",h:"0x2c1e...4a88",b:"Fuji #4,291,100"},{d:"01 Feb",e:"💰 Inversión en escrow",a:"-$500 USDC",h:"0x1a2b...cc44",b:"Fuji #4,270,001"}];
   return <div style={{background:"var(--bg-gray)",minHeight:"100vh",paddingTop:64}}>
     <div className="rsp-dash-wrap" style={{display:"flex",minHeight:"calc(100vh - 64px)"}}>
@@ -1368,13 +1467,13 @@ function DashboardInvestor({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: EXPLORADOR
 // ═══════════════════════════════════════════════════════════════════
-function Explorador({setPage}){
+function Explorador({setPage}: {setPage: (p: PageType) => void}){
   const [search,setSearch]=useState("");
   const [filter,setFilter]=useState("TODOS");
-  const [open,setOpen]=useState(null);
+  const [open,setOpen]=useState<string | null>(null);
   const filtered=ADMIN_PROJECTS.filter(p=>(filter==="TODOS"||(filter==="ACTIVOS"&&p.locked>0)||(filter==="COMPLETADOS"&&p.locked===0))&&p.name.toLowerCase().includes(search.toLowerCase()));
   const riskC={LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
-  const PROTO_STATS=[{i:"💰",l:"En Escrow",v:"$284K USDC"},{i:"✅",l:"Liberado",v:"$84K USDC"},{i:"⛓️",l:"TXs Fuji",v:"3,891"},{i:"🏦",l:"Fee Colmena",v:"$1,260"},{i:"🏗️",l:"Proyectos",v:"47"},{i:"👥",l:"Inversores",v:"1,240"}];
+  const PROTO_STATS=[{i:"💰",l:"En Escrow",v:"$284K USDC"},{i:"✅",l:"Liberado",v:"$84K USDC"},{i:"⛓��",l:"TXs Fuji",v:"3,891"},{i:"🏦",l:"Fee Colmena",v:"$1,260"},{i:"🏗️",l:"Proyectos",v:"47"},{i:"👥",l:"Inversores",v:"1,240"}];
   return <div style={{paddingTop:64}}>
     <div style={{background:"#111",backgroundImage:HEX,padding:"48px 24px 40px",borderBottom:`2px solid #111`}}>
       <div style={{maxWidth:1100,margin:"0 auto",textAlign:"center"}}>
@@ -1409,7 +1508,7 @@ function Explorador({setPage}){
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
                 <div><div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",opacity:.45,marginBottom:8,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">HITOS ColmenaCampaign.sol</div>
                   <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                    {MILESTONES.filter((_,i)=>i<(p.id===1?4:2)).map(m=>{const s=MSC[m.status];return <div key={m.id} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 9px",border:`1.5px solid ${s.border}`,borderRadius:5,background:s.bg}}><div style={{width:20,height:20,borderRadius:"50%",background:s.bg,border:`1.5px solid ${s.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0,color:s.color}}>{m.id}</div><span style={{fontSize:11,fontWeight:600,flex:1,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{m.title}</span>{m.hash&&<><Hash h={m.hash}/><SnowtraceLink/></>}<span style={{fontSize:9,fontWeight:700,color:s.color}}>{s.label}</span></div>;})}
+                    {MILESTONES.filter((_,i)=>i<(String(p.id)==="SLR"?4:2)).map(m=>{const s=MSC[m.status];return <div key={m.id} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 9px",border:`1.5px solid ${s.border}`,borderRadius:5,background:s.bg}}><div style={{width:20,height:20,borderRadius:"50%",background:s.bg,border:`1.5px solid ${s.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0,color:s.color}}>{m.id}</div><span style={{fontSize:11,fontWeight:600,flex:1,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{m.title}</span>{m.hash&&<><Hash h={m.hash}/><SnowtraceLink/></>}<span style={{fontSize:9,fontWeight:700,color:s.color}}>{s.label}</span></div>;})}
                   </div>
                 </div>
                 <div><div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",opacity:.45,marginBottom:8,color:"var(--text-main)"}} className="text-gray-900 dark:text-white">FLUJO CAPITAL</div>
@@ -1445,13 +1544,13 @@ function Explorador({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // CREAR CAMPAÑA
 // ═══════════════════════════════════════════════════════════════════
-function CrearCampana({setPage}){
+function CrearCampana({setPage}: {setPage: (p: PageType) => void}){
   const [step,setStep]=useState(0);
   const [data,setData]=useState({name:"",cat:"",loc:"",desc:"",goal:"",dur:"",milestones:[{id:1,title:"",pct:25,deadline:""},{id:2,title:"",pct:25,deadline:""}],sym:"",rev:"",thresh:"",ttype:"erc20"});
   const [deploying,setDeploying]=useState(false);const [deployed,setDeployed]=useState(false);
   const STEPS=["Info","Hitos","Token","Review","Deploy"];
   const pctTotal=(data.milestones||[]).reduce((a,m)=>a+Number(m.pct||0),0);
-  const updM=(id,f,v)=>setData(d=>({...d,milestones:d.milestones.map(m=>m.id===id?{...m,[f]:v}:m)}));
+  const updM=(id: number | string, f: string, v: unknown)=>setData(d=>({...d,milestones:d.milestones.map(m=>m.id===id?{...m,[f]:v}:m)}));
   const addM=()=>setData(d=>({...d,milestones:[...d.milestones,{id:d.milestones.reduce((a,m)=>Math.max(a,m.id),0)+1,title:"",pct:0,deadline:""}]}));
   const canNext=()=>{if(step===0)return data.name&&data.goal;if(step===1)return pctTotal===100&&data.milestones.every(m=>m.title);if(step===2)return data.sym&&data.rev;return true;};
   const doDeploy=()=>{setDeploying(true);setTimeout(()=>{setDeploying(false);setDeployed(true);},2200);};
@@ -1537,7 +1636,7 @@ function CrearCampana({setPage}){
               {[["Contrato","0xNEW...F4b2"],["Función","ColmenaCampaign.sol"],["Red","Avalanche Fuji Testnet"],["Chain ID","43113"],["TX Deploy","0x8a1c...33ef"],["Token",`${data.sym||"XYZ"} ERC-20 emitido`],["Estado","⚡ CAMPAÑA ACTIVA"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"6px 0",borderBottom:`1px solid var(--border-gray)`,fontSize:12}}><span style={{opacity:.55}}>{l}</span><span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:C.avax,fontSize:11,textAlign:"right"}}>{v}</span></div>)}
             </div>
             <div style={{display:"flex",gap:9,justifyContent:"center",flexWrap:"wrap"}}>
-              <button className="btn-avax" style={{padding:"11px 22px",width:"100%"}} onClick={()=>setPage("dashboard-creator")}>Ver mi Dashboard →</button>
+              <button className="btn-avax" style={{padding:"11px 22px",width:"100%"}} onClick={()=>setPage("dashCreator")}>Ver mi Dashboard →</button>
               <SnowtraceLink/>
             </div>
           </div>:<div>
@@ -1565,15 +1664,15 @@ function CrearCampana({setPage}){
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: ADMIN
 // ═══════════════════════════════════════════════════════════════════
-function Admin({setPage}){
+function Admin({setPage}: {setPage: (p: PageType) => void}){
   const [sec,setSec]=useState("overview");
-  const [selContract,setSelContract]=useState(null);
+  const [selContract,setSelContract]=useState<string | null>(null);
   const sideItems=[{k:"overview",i:"📊",l:"Resumen Global"},{k:"contracts",i:"🔒",l:"Contratos"},{k:"txs",i:"⛓️",l:"TXs Fuji"},{k:"alerts",i:"🚨",l:"Alertas",b:1},{k:"fees",i:"💼",l:"Revenue"},{k:"audit",i:"🔍",l:"Auditoría"}];
   const PSTATS=[{i:"💰",l:"En Escrow",v:"$284K",s:"USDC",c:C.yellow},{i:"✅",l:"Liberado",v:"$84K",s:"hitos OK",c:C.success},{i:"⛓️",l:"TXs Fuji",v:"3,891",s:"on-chain",c:"#8B5CF6"},{i:"🏦",l:"Fees",v:"$1,260",s:"1.5%",c:C.orange},{i:"🏗️",l:"Proyectos",v:"47",s:"contratos",c:"#3B82F6"},{i:"👥",l:"Inversores",v:"1,240",s:"wallets",c:"#F59E0B"}];
-  const riskC={LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
-  const riskBg={LOW:"var(--bg-success)",MED:"#FEF3C7",HIGH:"var(--bg-red)",NONE:"#222"};
-  const txTypeC={RELEASE:C.success,EVIDENCE:"#8B5CF6",FEE:C.orange,INVEST:"#3B82F6"};
-  const ALERTS=[{lv:"HIGH",p:"CliniBus Perú",m:"Hito 1 vencido hace 8 días sin evidencia IPFS",t:"hace 2h"},{lv:"MED",p:"Aula Digital Mx",m:"Quorum en Fuji al 61% — riesgo de bloqueo",t:"hace 5h"},{lv:"LOW",p:"SolarHogar LATAM",m:"Gas limit cerca del tope en último batch de TXs",t:"hace 1d"}];
+  const riskC: Record<RiskLevel, string> = {LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
+  const riskBg: Record<RiskLevel, string> = {LOW:"var(--bg-success)",MED:"#FEF3C7",HIGH:"var(--bg-red)",NONE:"#222"};
+  const txTypeC: Record<TxType, string> = {RELEASE:C.success,EVIDENCE:"#8B5CF6",FEE:C.orange,INVEST:"#3B82F6"};
+  const ALERTS: {lv: RiskLevel; p: string; m: string; t: string}[] = [{lv:"HIGH",p:"CliniBus Perú",m:"Hito 1 vencido hace 8 días sin evidencia IPFS",t:"hace 2h"},{lv:"MED",p:"Aula Digital Mx",m:"Quorum en Fuji al 61% — riesgo de bloqueo",t:"hace 5h"},{lv:"LOW",p:"SolarHogar LATAM",m:"Gas limit cerca del tope en último batch de TXs",t:"hace 1d"}];
   const AUDIT=[["Balances on-chain coinciden con frontend — Fuji","PASS"],["Contratos no tienen renounced ownership","PASS"],["Fee nunca excede 1.5% verificado en Fuji","PASS"],["Hitos liberados solo con quorum on-chain","PASS"],["CliniBus Perú: evidencia IPFS vencida +7 días","WARN"],["Tokens ERC-20 corresponden a inversiones on-chain","PASS"],["Snowtrace Fuji accesible (Chain 43113)","PASS"]];
   return <div style={{background:"#0D0D0D",minHeight:"100vh",paddingTop:56}}>
     <div className="rsp-admin-wrap" style={{display:"flex",minHeight:"calc(100vh - 56px)"}}>
@@ -1676,30 +1775,30 @@ export default function RootApp() {
 
 function ColmenaAppInner() {
   const { user } = usePrivy();
-  const [page,setPage]=useState("landing");
-  const wallet = user?.wallet?.address;
-  const [role,setRole]=useState(null);
-  
-  const { t } = useI18n();
-  const navRef = useRef(null);
+  const [page,setPage]=useState<PageType>("landing");
+  const wallet: string | null = user?.wallet?.address ?? null;
 
-  const handleWheel = (e) => {
+  const [role,setRole]=useState<RoleType>(null);
+  const { t } = useI18n();
+  const navRef = useRef<HTMLDivElement>(null);
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (navRef.current) {
       navRef.current.scrollLeft += e.deltaY;
     }
   };
 
-  const PAGES=["landing","proyecto","onboarding","dashboard-creator","dashboard-investor","explorador","crear","admin"];
+  const PAGES: PageType[]=["landing","proyecto","onboarding","dashCreator","dashInvestor","explorador","crearCampana","admin"];
   const LABELS=[t("float_landing"),t("float_project"),t("float_onboarding"),t("float_dash_cr"),t("float_dash_in"),t("float_explorer"),t("float_create"),t("float_admin")];
 
   const renderPage=()=>{
     if(page==="landing")return <Landing setPage={setPage}/>;
     if(page==="proyecto")return <Proyecto setPage={setPage} wallet={wallet}/>;
     if(page==="onboarding")return <Onboarding setPage={setPage} setRole={setRole}/>;
-    if(page==="dashboard-creator")return <DashboardCreator setPage={setPage}/>;
-    if(page==="dashboard-investor")return <DashboardInvestor setPage={setPage}/>;
+    if(page==="dashCreator")return <DashboardCreator setPage={setPage}/>;
+    if(page==="dashInvestor")return <DashboardInvestor setPage={setPage}/>;
     if(page==="explorador")return <Explorador setPage={setPage}/>;
-    if(page==="crear")return <CrearCampana setPage={setPage}/>;
+    if(page==="crearCampana")return <CrearCampana setPage={setPage}/>;
     if(page==="admin")return <Admin setPage={setPage}/>;
     return <Landing setPage={setPage}/>;
   };
