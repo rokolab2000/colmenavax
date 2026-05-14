@@ -655,13 +655,37 @@ const LIVE_TXS=[
   "MicroPréstamo AR — Revenue share +$4,200 USDC · 0x9e4b...ff01 · Fuji #4,290,988",
   "CliniBus Perú — Inversión en escrow +1.2 AVAX · 0x2c1e...4a88 · Fuji #4,290,750",
 ];
-const ADMIN_TXS=[
+type TxType = "RELEASE" | "EVIDENCE" | "FEE" | "INVEST";
+type RiskLevel = "LOW" | "MED" | "HIGH" | "NONE";
+
+interface AdminTx {
+  hash: string;
+  project: string;
+  type: TxType;
+  amount: string;
+  block: string;
+  time: string;
+}
+
+interface AdminProject {
+  id: string;
+  name: string;
+  raised: number;
+  locked: number;
+  released: number;
+  fee: number;
+  backers: number;
+  risk: RiskLevel;
+  contract: string;
+}
+
+const ADMIN_TXS: AdminTx[] = [
   {hash:"0x7f3a...d92b",project:"SolarHogar LATAM",type:"RELEASE",amount:"+$7,500 USDC",block:"#4,291,112",time:"hace 2h"},
   {hash:"0x9e4b...ff01",project:"AgroDAO Bolivia",type:"EVIDENCE",amount:"—",block:"#4,291,099",time:"hace 5h"},
   {hash:"0x2c1e...4a88",project:"MicroPréstamo AR",type:"FEE",amount:"-$663 USDC",block:"#4,290,800",time:"ayer"},
   {hash:"0xa1b2...cc44",project:"SolarHogar LATAM",type:"INVEST",amount:"+$150 USDC",block:"#4,290,750",time:"ayer"},
 ];
-const ADMIN_PROJECTS=[
+const ADMIN_PROJECTS: AdminProject[] = [
   {id:"SLR",name:"SolarHogar LATAM",raised:18400,locked:3400,released:15000,fee:225,backers:143,risk:"LOW",contract:"0xA3f2...9c4E"},
   {id:"AGR",name:"AgroDAO Bolivia",raised:31000,locked:6200,released:24800,fee:372,backers:211,risk:"LOW",contract:"0xB7d1...5a1F"},
   {id:"MPR",name:"MicroPréstamo AR",raised:44200,locked:0,released:44200,fee:663,backers:318,risk:"NONE",contract:"0xC2f0...8b3A"},
@@ -1449,7 +1473,7 @@ function Explorador({setPage}: {setPage: (p: PageType) => void}){
   const [open,setOpen]=useState<string | null>(null);
   const filtered=ADMIN_PROJECTS.filter(p=>(filter==="TODOS"||(filter==="ACTIVOS"&&p.locked>0)||(filter==="COMPLETADOS"&&p.locked===0))&&p.name.toLowerCase().includes(search.toLowerCase()));
   const riskC={LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
-  const PROTO_STATS=[{i:"💰",l:"En Escrow",v:"$284K USDC"},{i:"✅",l:"Liberado",v:"$84K USDC"},{i:"⛓️",l:"TXs Fuji",v:"3,891"},{i:"🏦",l:"Fee Colmena",v:"$1,260"},{i:"🏗️",l:"Proyectos",v:"47"},{i:"👥",l:"Inversores",v:"1,240"}];
+  const PROTO_STATS=[{i:"💰",l:"En Escrow",v:"$284K USDC"},{i:"✅",l:"Liberado",v:"$84K USDC"},{i:"⛓��",l:"TXs Fuji",v:"3,891"},{i:"🏦",l:"Fee Colmena",v:"$1,260"},{i:"🏗️",l:"Proyectos",v:"47"},{i:"👥",l:"Inversores",v:"1,240"}];
   return <div style={{paddingTop:64}}>
     <div style={{background:"#111",backgroundImage:HEX,padding:"48px 24px 40px",borderBottom:`2px solid #111`}}>
       <div style={{maxWidth:1100,margin:"0 auto",textAlign:"center"}}>
@@ -1477,7 +1501,7 @@ function Explorador({setPage}: {setPage: (p: PageType) => void}){
               <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
                 {[{l:"Recaudado",v:`$${(p.raised/1000).toFixed(0)}K`},{l:"Liberado",v:`$${(p.released/1000).toFixed(0)}K`,c:C.success},{l:"Escrow",v:`$${(p.locked/1000).toFixed(0)}K`,c:C.orange}].map((s,i)=><div key={i} style={{textAlign:"center"}}><div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:17,fontWeight:700,color:s.c||"var(--text-main)"}} className={s.c?"":"text-gray-900 dark:text-white"}>{s.v}</div><div style={{fontSize:9,opacity:.45,textTransform:"uppercase",color:"var(--text-main)"}} className="text-gray-900 dark:text-white">{s.l}</div></div>)}
               </div>
-              <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",background:`${riskC[p.risk as keyof typeof riskC]}22`,color:riskC[p.risk as keyof typeof riskC],borderRadius:999,border:`1px solid ${riskC[p.risk as keyof typeof riskC]}55`}}>RISK {p.risk}</span>
+              <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",background:`${riskC[p.risk]}22`,color:riskC[p.risk],borderRadius:999,border:`1px solid ${riskC[p.risk]}55`}}>RISK {p.risk}</span>
               <span style={{fontSize:18,opacity:.3,transition:"transform .2s",transform:open===p.id?"rotate(90deg)":"none",color:"var(--text-main)"}}>›</span>
             </div>
             {open===p.id&&<div style={{padding:"16px 18px",borderTop:`2px solid var(--border-gray)`,background:"var(--bg-gray)",animation:"slideUp .3s ease forwards"}}>
@@ -1645,10 +1669,10 @@ function Admin({setPage}: {setPage: (p: PageType) => void}){
   const [selContract,setSelContract]=useState<string | null>(null);
   const sideItems=[{k:"overview",i:"📊",l:"Resumen Global"},{k:"contracts",i:"🔒",l:"Contratos"},{k:"txs",i:"⛓️",l:"TXs Fuji"},{k:"alerts",i:"🚨",l:"Alertas",b:1},{k:"fees",i:"💼",l:"Revenue"},{k:"audit",i:"🔍",l:"Auditoría"}];
   const PSTATS=[{i:"💰",l:"En Escrow",v:"$284K",s:"USDC",c:C.yellow},{i:"✅",l:"Liberado",v:"$84K",s:"hitos OK",c:C.success},{i:"⛓️",l:"TXs Fuji",v:"3,891",s:"on-chain",c:"#8B5CF6"},{i:"🏦",l:"Fees",v:"$1,260",s:"1.5%",c:C.orange},{i:"🏗️",l:"Proyectos",v:"47",s:"contratos",c:"#3B82F6"},{i:"👥",l:"Inversores",v:"1,240",s:"wallets",c:"#F59E0B"}];
-  const riskC={LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
-  const riskBg={LOW:"var(--bg-success)",MED:"#FEF3C7",HIGH:"var(--bg-red)",NONE:"#222"};
-  const txTypeC={RELEASE:C.success,EVIDENCE:"#8B5CF6",FEE:C.orange,INVEST:"#3B82F6"};
-  const ALERTS=[{lv:"HIGH",p:"CliniBus Perú",m:"Hito 1 vencido hace 8 días sin evidencia IPFS",t:"hace 2h"},{lv:"MED",p:"Aula Digital Mx",m:"Quorum en Fuji al 61% — riesgo de bloqueo",t:"hace 5h"},{lv:"LOW",p:"SolarHogar LATAM",m:"Gas limit cerca del tope en último batch de TXs",t:"hace 1d"}];
+  const riskC: Record<RiskLevel, string> = {LOW:C.success,MED:C.yellow,HIGH:C.red,NONE:"#555"};
+  const riskBg: Record<RiskLevel, string> = {LOW:"var(--bg-success)",MED:"#FEF3C7",HIGH:"var(--bg-red)",NONE:"#222"};
+  const txTypeC: Record<TxType, string> = {RELEASE:C.success,EVIDENCE:"#8B5CF6",FEE:C.orange,INVEST:"#3B82F6"};
+  const ALERTS: {lv: RiskLevel; p: string; m: string; t: string}[] = [{lv:"HIGH",p:"CliniBus Perú",m:"Hito 1 vencido hace 8 días sin evidencia IPFS",t:"hace 2h"},{lv:"MED",p:"Aula Digital Mx",m:"Quorum en Fuji al 61% — riesgo de bloqueo",t:"hace 5h"},{lv:"LOW",p:"SolarHogar LATAM",m:"Gas limit cerca del tope en último batch de TXs",t:"hace 1d"}];
   const AUDIT=[["Balances on-chain coinciden con frontend — Fuji","PASS"],["Contratos no tienen renounced ownership","PASS"],["Fee nunca excede 1.5% verificado en Fuji","PASS"],["Hitos liberados solo con quorum on-chain","PASS"],["CliniBus Perú: evidencia IPFS vencida +7 días","WARN"],["Tokens ERC-20 corresponden a inversiones on-chain","PASS"],["Snowtrace Fuji accesible (Chain 43113)","PASS"]];
   return <div style={{background:"#0D0D0D",minHeight:"100vh",paddingTop:56}}>
     <div className="rsp-admin-wrap" style={{display:"flex",minHeight:"calc(100vh - 56px)"}}>
@@ -1670,7 +1694,7 @@ function Admin({setPage}: {setPage: (p: PageType) => void}){
             {PSTATS.map((m,i)=><div key={i} className="dc" style={{padding:"14px 16px",borderLeft:`3px solid ${m.c}`}}><div style={{fontSize:20,marginBottom:5}}>{m.i}</div><div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:m.c,lineHeight:1}}>{m.v}</div><div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",marginTop:3,color:"rgba(255,255,255,.35)"}}>{m.l}</div><div style={{fontSize:9,color:"rgba(255,255,255,.2)",marginTop:1}}>{m.s}</div></div>)}
           </div>
           <div className="dc" style={{padding:16,marginBottom:14}}><div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",color:"rgba(255,255,255,.3)",marginBottom:12}}>FLUJO CAPITAL — AVALANCHE FUJI</div><div style={{height:40,display:"flex",border:"1.5px solid #333",borderRadius:4,overflow:"hidden",marginBottom:9}}>{[{l:"LIBERADO",pct:30,c:C.success},{l:"ESCROW",pct:55,c:C.yellow},{l:"FEE",pct:.4,c:C.orange},{l:"",pct:14.6,c:"#2A2A2A"}].map((s,i)=><div key={i} style={{flex:s.pct,background:s.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:s.c===C.yellow?"#111":"#fff",minWidth:s.pct>3?36:0}}>{s.pct>3&&s.l}</div>)}</div><div style={{display:"flex",gap:16,flexWrap:"wrap"}}>{[{c:C.success,l:"Liberado 30%"},{c:C.yellow,l:"Escrow 55%"},{c:C.orange,l:"Fee 0.4%"},{c:"#333",l:"Libre 14.6%"}].map((l,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"rgba(255,255,255,.4)"}}><div style={{width:8,height:8,borderRadius:2,background:l.c}}/>{l.l}</div>)}</div></div>
-          <div className="dc" style={{overflow:"hidden"}}><div style={{padding:"10px 14px",borderBottom:"1px solid #2A2A2A",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",color:"#fff"}}>🚨 Alertas</span></div>{ALERTS.map((a,i)=><div key={i} style={{padding:"10px 14px",borderBottom:`1px solid #1E1E1E`,display:"flex",gap:9,alignItems:"center"}}><span style={{fontSize:13}}>{a.lv==="HIGH"?"🔴":a.lv==="MED"?"🟡":"🟢"}</span><div style={{flex:1}}><span style={{fontSize:11,fontWeight:700,color:riskC[a.lv as keyof typeof riskC]}}>[{a.lv}] </span><span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{a.p} — {a.m}</span></div><span style={{fontSize:9,color:"rgba(255,255,255,.2)",fontFamily:"'JetBrains Mono',monospace"}}>{a.t}</span></div>)}</div>
+          <div className="dc" style={{overflow:"hidden"}}><div style={{padding:"10px 14px",borderBottom:"1px solid #2A2A2A",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",color:"#fff"}}>🚨 Alertas</span></div>{ALERTS.map((a,i)=><div key={i} style={{padding:"10px 14px",borderBottom:`1px solid #1E1E1E`,display:"flex",gap:9,alignItems:"center"}}><span style={{fontSize:13}}>{a.lv==="HIGH"?"🔴":a.lv==="MED"?"🟡":"🟢"}</span><div style={{flex:1}}><span style={{fontSize:11,fontWeight:700,color:riskC[a.lv]}}>[{a.lv}] </span><span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{a.p} — {a.m}</span></div><span style={{fontSize:9,color:"rgba(255,255,255,.2)",fontFamily:"'JetBrains Mono',monospace"}}>{a.t}</span></div>)}</div>
         </div>}
 
         {sec==="contracts"&&<div className="dc" style={{overflow:"hidden"}}>
@@ -1682,7 +1706,7 @@ function Admin({setPage}: {setPage: (p: PageType) => void}){
               <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:C.yellow}}>${p.locked.toLocaleString()}</span></td>
               <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:C.success}}>${p.released.toLocaleString()}</span></td>
               <td><span style={{fontFamily:"'JetBrains Mono',monospace",color:C.orange,fontSize:11}}>${p.fee}</span></td>
-              <td><span style={{fontSize:9,fontWeight:700,padding:"2px 7px",background:riskBg[p.risk as keyof typeof riskBg],color:riskC[p.risk as keyof typeof riskC],borderRadius:999}}>{p.risk}</span></td>
+              <td><span style={{fontSize:9,fontWeight:700,padding:"2px 7px",background:riskBg[p.risk],color:riskC[p.risk],borderRadius:999}}>{p.risk}</span></td>
               <td><div style={{display:"flex",gap:4}}><button className="btn-ghost-dark" style={{padding:"3px 8px",fontSize:10}}>Ver</button>{p.risk==="HIGH"&&<button style={{background:"#FEE2E2",color:"#991B1B",border:"1px solid #EF4444",borderRadius:4,padding:"3px 8px",fontSize:9,fontWeight:700,cursor:"pointer"}}>⚠️ Acción</button>}</div></td>
             </tr>)}</tbody>
           </table></div>
@@ -1751,30 +1775,30 @@ export default function RootApp() {
 
 function ColmenaAppInner() {
   const { user } = usePrivy();
-  const [page,setPage]=useState("landing");
-  const wallet = user?.wallet?.address;
-  const [role,setRole]=useState(null);
-  
-  const { t } = useI18n();
-  const navRef = useRef(null);
+  const [page,setPage]=useState<PageType>("landing");
+  const wallet: string | null = user?.wallet?.address ?? null;
 
-  const handleWheel = (e) => {
+  const [role,setRole]=useState<RoleType>(null);
+  const { t } = useI18n();
+  const navRef = useRef<HTMLDivElement>(null);
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (navRef.current) {
       navRef.current.scrollLeft += e.deltaY;
     }
   };
 
-  const PAGES=["landing","proyecto","onboarding","dashboard-creator","dashboard-investor","explorador","crear","admin"];
+  const PAGES: PageType[]=["landing","proyecto","onboarding","dashCreator","dashInvestor","explorador","crearCampana","admin"];
   const LABELS=[t("float_landing"),t("float_project"),t("float_onboarding"),t("float_dash_cr"),t("float_dash_in"),t("float_explorer"),t("float_create"),t("float_admin")];
 
   const renderPage=()=>{
     if(page==="landing")return <Landing setPage={setPage}/>;
     if(page==="proyecto")return <Proyecto setPage={setPage} wallet={wallet}/>;
     if(page==="onboarding")return <Onboarding setPage={setPage} setRole={setRole}/>;
-    if(page==="dashboard-creator")return <DashboardCreator setPage={setPage}/>;
-    if(page==="dashboard-investor")return <DashboardInvestor setPage={setPage}/>;
+    if(page==="dashCreator")return <DashboardCreator setPage={setPage}/>;
+    if(page==="dashInvestor")return <DashboardInvestor setPage={setPage}/>;
     if(page==="explorador")return <Explorador setPage={setPage}/>;
-    if(page==="crear")return <CrearCampana setPage={setPage}/>;
+    if(page==="crearCampana")return <CrearCampana setPage={setPage}/>;
     if(page==="admin")return <Admin setPage={setPage}/>;
     return <Landing setPage={setPage}/>;
   };
