@@ -21,6 +21,9 @@ export const metadata: Metadata = {
     description: "El capital sin fricción para LATAM. Escrow on-chain y hitos verificados.",
     type: "website",
   },
+  icons: {
+    icon: "/favicon.jpg",
+  },
 };
 
 export default function RootLayout({
